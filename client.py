@@ -1,31 +1,19 @@
 import socket
 
-HEADER = 64
-PORT = 5050
-SERVER = socket.gethostbyname(socket.gethostname())
-FORMAT = 'utf-8'
-DISCONNECT_MESSAGE = "!DISCONNECT"
-ADDR = (SERVER, PORT) # on tam mal "localhost", 12345
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect(ADDR)  # We are connecting to the server
+server_address = (socket.gethostname(), 1234)
+client_address = (socket.gethostname(), 1235)
 
-# client.sendto("ahoj".encode(), ADDR)
-# client.recvfrom(1000)
+# sock.bind(client_address)
 
-def send(msg):
-    message = msg.encode(FORMAT)
-    msg_length = len(message)
-    send_length = str(msg_length).encode(FORMAT)
+message = b"mm"
 
-    send_length += b' ' * (HEADER - len(send_length))
-    print(send_length)
-    client.send(send_length)
+# Send data
+sent = client_socket.sendto(message, server_address)
 
-    client.send(message)
+while True:
+    # Receive response
+    data, server = client_socket.recvfrom(4096) #Value when to stop reading
+    print(data)
 
-
-send("Hello World!")
-send("Hello Joshua!")
-send("Hello Willy Wonka!")
-send(DISCONNECT_MESSAGE)
