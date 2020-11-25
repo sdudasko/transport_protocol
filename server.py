@@ -2,6 +2,7 @@ import socket
 import time
 import struct
 import pickle
+import shared
 
 import config
 
@@ -19,30 +20,42 @@ server_address = (socket.gethostname(), 1234)
 server_socket.bind(server_address)
 print(f"[LISTENING] Server is listening on {SERVER}")
 
+
 def send(msg, address):
     message = msg.encode(FORMAT)
-    msg_length = len(message)
-    send_length = str(msg_length).encode(FORMAT)
-    send_length += b' ' * (HEADER_SIZE - len(send_length))
-    server_socket.sendto(send_length, address)
     server_socket.sendto(message, address)
 
-# Note we do not use .listen() because UDP does not listen on connections,
-# it right away takes a message from recvfrom
-while True:
-    message, address = server_socket.recvfrom(MAX_DATA_SIZE)
 
-    if message:
+def send_ack(address):
+    udp_header_arr = (
+        shared.get_fragment_order(),
+        shared.get_signal_message('ACKNOWLEDGEMENT'),
+        shared.get_fragment_order(),
+        shared.get_crc(),
+        shared.get_data()
+    )
+    udp_header = pickle.dumps(udp_header_arr)
+    data = b""
+    server_socket.sendto(udp_header + data, address)
 
-        if pickle.loads(message)[1] == config.signals['CONNECTION_INITIALIZATION']:
-            msg = "Hello, and welcome!:)"
-            msg = f'{len(msg):<{HEADER_SIZE}}' + msg  # Nastavi fixny header size a za to doplni tu msg
-            send(msg, address)
 
-        print(f"Printing header: {pickle.loads(message)[1]}")
+# while True:
+message, address = server_socket.recvfrom(MAX_DATA_SIZE)  # We are waiting for init message
 
-    else:
-        pass
+if message:
+
+    # If the message we got is initialization message
+    if pickle.loads(message)[1] == config.signals['CONNECTION_INITIALIZATION']:
+
+        send_ack(address)
+
+        message, address = server_socket.recvfrom(MAX_DATA_SIZE)
+
+        if (message):
+            print(message)
+
+else:
+    pass
 
     # Prva sprava nam da vediet, aku velkost bude mat prichadzajuca sprava a potom prijimeme
     # spravu s velkostou, ktoru sme zistili
