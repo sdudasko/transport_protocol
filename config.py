@@ -1,0 +1,4 @@
+# SIGNALS
+signals = dict(
+    CONNECTION_INITIALIZATION = 1
+)
