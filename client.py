@@ -61,11 +61,17 @@ while True:
 
         if int.from_bytes(message[2:4], 'little') == 2:
             filename = "alica.txt"
-            os.path.getsize("alica.txt")
+            size_of_file_to_send = os.path.getsize("alica.txt")
+
+            print(f"Size of file: {size_of_file_to_send}")
+
             with open("alica.txt", 'r') as file:
                 bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
-                print(f"Len: {len(bytes_to_send)}")
                 send_piece_of_data(bytes_to_send, 1)
+
+                while bytes_to_send != "":
+                    bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
+                    send_piece_of_data(bytes_to_send, 1)
 
 # send(DISCONNECT_MESSAGE)
 

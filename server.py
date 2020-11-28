@@ -41,8 +41,7 @@ def send_ack(address):
 message, address = server_socket.recvfrom(MAX_DATA_SIZE)  # We are waiting for init message
 
 if message:
-    print(int.from_bytes(message[0:2], 'little'))
-    print(int.from_bytes(message[2:4], 'little'))
+
     # If the message we got is initialization message
     if int.from_bytes(message[2:4], 'little') == config.signals['CONNECTION_INITIALIZATION']:
 
@@ -51,8 +50,6 @@ if message:
         message, address = server_socket.recvfrom(MAX_DATA_SIZE)
 
         if message:
-            print("HEADER...")
-            print("ENDHEADER...")
             print(message[(config.header['HEADER_SIZE'] + 1):].decode('utf-8'))
 
 else:
