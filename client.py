@@ -1,5 +1,5 @@
 import socket
-import pickle
+# import pickle
 import config
 import shared
 import os
@@ -17,25 +17,16 @@ client_address = (socket.gethostname(), 1235)
 
 
 def send_piece_of_data(bytes_to_send, order):
-    udp_header_arr = (
+    udp_header_arr = b''.join([
         shared.get_fragment_order(order),
         shared.get_signal_message('DATA_SENDING'),
         shared.get_fragment_length(bytes_to_send),
         shared.get_number_of_fragments(),
         shared.get_crc(),
         shared.get_data(bytes_to_send)['data']
-    )
-    udp_header = pickle.dumps(udp_header_arr)
-    data = b""
-    # print(f"get_fragment_order: {sys.getsizeof(shared.get_fragment_order(order))}")
-    # print(f"get_signal_message: {sys.getsizeof(shared.get_signal_message('DATA_SENDING'))}")
-    # print(f"get_fragment_length: {sys.getsizeof(shared.get_fragment_length(bytes_to_send))}")
-    # print(f"get_number_of_fragments: {sys.getsizeof(shared.get_number_of_fragments())}")
-    # print(f"get_crc: {sys.getsizeof(shared.get_crc())}")
-    # print(f"get_data: {len(shared.get_data(bytes_to_send)['data'])}")
-    print("Here")
-    print(udp_header)
-    client_socket.sendto(udp_header + data, server_address)
+    ])
+
+    client_socket.sendto(udp_header_arr, server_address)
 
 
 def send(msg):
@@ -48,17 +39,15 @@ def send(msg):
 
 
 def send_init():
-    udp_header_arr = (
+    udp_header_arr = b''.join([
         shared.get_fragment_order(0),
         shared.get_signal_message('CONNECTION_INITIALIZATION'),
         shared.get_fragment_length(b''),
         shared.get_number_of_fragments(),
-        shared.get_crc(),
-        shared.get_data(b'')['data']
-    )
-    udp_header = pickle.dumps(udp_header_arr)
-    data = b""
-    client_socket.sendto(udp_header + data, server_address)
+        shared.get_crc()
+
+    ])
+    client_socket.sendto(udp_header_arr, server_address)
 
 
 # 1. FIRST WE SEND INIT MESSAGE TO THE SERVER SO WE WANT TO INITIALIZE A CONNECTION
@@ -69,13 +58,13 @@ while True:
     if message:
         # We got ack after init from server, now are "connected",
         # not really connected since UDP is connectionless but kind of
-        if pickle.loads(message)[1] == 2:
+
+        if int.from_bytes(message[2:4], 'little') == 2:
             filename = "alica.txt"
             os.path.getsize("alica.txt")
             with open("alica.txt", 'r') as file:
                 bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
                 print(f"Len: {len(bytes_to_send)}")
-                # client_socket.sendto(bytes_to_send, server_address)
                 send_piece_of_data(bytes_to_send, 1)
 
 # send(DISCONNECT_MESSAGE)

@@ -1,7 +1,7 @@
 import socket
 import time
 import struct
-import pickle
+# import pickle
 import shared
 
 import config
@@ -27,25 +27,24 @@ def send(msg, address):
 
 
 def send_ack(address):
-    udp_header_arr = (
+    udp_header_arr = b''.join([
         shared.get_fragment_order(0),
         shared.get_signal_message('ACKNOWLEDGEMENT'),
         shared.get_fragment_order(0),
         shared.get_crc(),
-        shared.get_data(b'')
-    )
-    udp_header = pickle.dumps(udp_header_arr)
-    data = b""
-    server_socket.sendto(udp_header + data, address)
+        shared.get_data(b'')['data']
+    ])
+    server_socket.sendto(udp_header_arr, address)
 
 
 # while True:
 message, address = server_socket.recvfrom(MAX_DATA_SIZE)  # We are waiting for init message
 
 if message:
-
+    print(int.from_bytes(message[0:2], 'little'))
+    print(int.from_bytes(message[2:4], 'little'))
     # If the message we got is initialization message
-    if pickle.loads(message)[1] == config.signals['CONNECTION_INITIALIZATION']:
+    if int.from_bytes(message[2:4], 'little') == config.signals['CONNECTION_INITIALIZATION']:
 
         send_ack(address)
 
@@ -53,11 +52,8 @@ if message:
 
         if message:
             print("HEADER...")
-
-            print(pickle.loads(message))
-
             print("ENDHEADER...")
-            print(message[(config.header['HEADER_SIZE'] + 1):].decode())
+            print(message[(config.header['HEADER_SIZE'] + 1):].decode('utf-8'))
 
 else:
     pass

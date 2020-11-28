@@ -10,25 +10,27 @@ def get_max_size_of_receiving_packet_without_header():  # TODO - toto si musi ve
 
 
 def get_fragment_order(order):
-    # order = order.to_bytes(2, byteorder='little')
+    order = order.to_bytes(2, byteorder='little')
     return order
 
 
 def get_signal_message(signal):
-    return config.signals[signal]
+    sign = config.signals[signal].to_bytes(2, byteorder='little')
+    return sign
 
 
-def get_fragment_length(bytes):
-    return len(bytes).to_bytes(2, byteorder='little')
+def get_fragment_length(bytes_arg):
+    return len(bytes_arg).to_bytes(4, byteorder='little')
 
 
 def get_number_of_fragments():
-    abc = 1
+    abc = 19 # TODO
     return abc.to_bytes(2, byteorder='little')
 
 
 def get_crc():
-    return 0
+    abc = 15 # TODO
+    return abc.to_bytes(4, byteorder='little')
 
 
 def get_data(data_in_bytes):
