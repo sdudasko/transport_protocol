@@ -30,12 +30,12 @@ def send_piece_of_data(bytes_to_send, order):
 
 
 def send(msg):
-    message = msg.encode(FORMAT).strip()
-    msg_length = len(message)
+    _message = msg.encode(FORMAT).strip()
+    msg_length = len(_message)
     send_length = str(msg_length).encode(FORMAT).strip()
     send_length += b' ' * (HEADER_SIZE - len(send_length))
     client_socket.sendto(send_length, server_address)
-    client_socket.sendto(message, server_address)
+    client_socket.sendto(_message, server_address)
 
 
 def send_init():
@@ -60,18 +60,20 @@ while True:
         # not really connected since UDP is connectionless but kind of
 
         if int.from_bytes(message[2:4], 'little') == 2:
-            filename = "alica.txt"
-            size_of_file_to_send = os.path.getsize("alica.txt")
-
+            filename = "adad.png"
+            size_of_file_to_send = os.path.getsize(filename)
             print(f"Size of file: {size_of_file_to_send}")
 
-            with open("alica.txt", 'r') as file:
+            i = 1
+            with open(filename, 'rb') as file:
                 bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
-                send_piece_of_data(bytes_to_send, 1)
 
-                while bytes_to_send != "":
+                send_piece_of_data(bytes_to_send, i)
+
+                while bytes_to_send != b'':
+                    i += 1
                     bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
-                    send_piece_of_data(bytes_to_send, 1)
+                    send_piece_of_data(bytes_to_send, i)
 
 # send(DISCONNECT_MESSAGE)
 

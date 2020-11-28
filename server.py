@@ -8,7 +8,7 @@ import config
 
 BLOCK_SIZE = 15
 HEADER_SIZE = 14
-MAX_DATA_SIZE = 1456
+MAX_DATA_SIZE = 1500
 
 DISCONNECT_MESSAGE = "!DISCONNECT"
 SERVER = socket.gethostbyname(socket.gethostname())
@@ -49,8 +49,22 @@ if message:
 
         message, address = server_socket.recvfrom(MAX_DATA_SIZE)
 
-        if message:
-            print(message[(config.header['HEADER_SIZE'] + 1):].decode('utf-8'))
+        if message and int.from_bytes(message[2:4], 'little') == config.signals['DATA_SENDING']:
+
+            new_file = open('novovytvoreny.png', 'wb')
+            new_file.write(message[(config.header['HEADER_SIZE']):])
+
+            while True:
+
+                message, address = server_socket.recvfrom(MAX_DATA_SIZE)
+                new_file.write(message[(config.header['HEADER_SIZE'] ):])
+
+                if int.from_bytes(message[4:8], 'little') != config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER']:
+                    message, address = server_socket.recvfrom(MAX_DATA_SIZE)
+                    new_file.write(message[(config.header['HEADER_SIZE'] ):])
+                    break
+
+
 
 else:
     pass
