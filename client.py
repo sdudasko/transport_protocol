@@ -3,6 +3,7 @@ import pickle
 import config
 import shared
 import os
+import sys
 
 BLOCK_SIZE = 15
 HEADER_SIZE = 14
@@ -14,10 +15,33 @@ client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_address = (socket.gethostname(), 1234)
 client_address = (socket.gethostname(), 1235)
 
+
+def send_piece_of_data(bytes_to_send, order):
+    udp_header_arr = (
+        shared.get_fragment_order(order),
+        shared.get_signal_message('DATA_SENDING'),
+        shared.get_fragment_length(bytes_to_send),
+        shared.get_number_of_fragments(),
+        shared.get_crc(),
+        shared.get_data(bytes_to_send)['data']
+    )
+    udp_header = pickle.dumps(udp_header_arr)
+    data = b""
+    # print(f"get_fragment_order: {sys.getsizeof(shared.get_fragment_order(order))}")
+    # print(f"get_signal_message: {sys.getsizeof(shared.get_signal_message('DATA_SENDING'))}")
+    # print(f"get_fragment_length: {sys.getsizeof(shared.get_fragment_length(bytes_to_send))}")
+    # print(f"get_number_of_fragments: {sys.getsizeof(shared.get_number_of_fragments())}")
+    # print(f"get_crc: {sys.getsizeof(shared.get_crc())}")
+    # print(f"get_data: {len(shared.get_data(bytes_to_send)['data'])}")
+    print("Here")
+    print(udp_header)
+    client_socket.sendto(udp_header + data, server_address)
+
+
 def send(msg):
-    message = msg.encode(FORMAT)
+    message = msg.encode(FORMAT).strip()
     msg_length = len(message)
-    send_length = str(msg_length).encode(FORMAT)
+    send_length = str(msg_length).encode(FORMAT).strip()
     send_length += b' ' * (HEADER_SIZE - len(send_length))
     client_socket.sendto(send_length, server_address)
     client_socket.sendto(message, server_address)
@@ -25,11 +49,12 @@ def send(msg):
 
 def send_init():
     udp_header_arr = (
-        shared.get_fragment_order(),
+        shared.get_fragment_order(0),
         shared.get_signal_message('CONNECTION_INITIALIZATION'),
-        shared.get_fragment_order(),
+        shared.get_fragment_length(b''),
+        shared.get_number_of_fragments(),
         shared.get_crc(),
-        shared.get_data()
+        shared.get_data(b'')['data']
     )
     udp_header = pickle.dumps(udp_header_arr)
     data = b""
@@ -47,9 +72,11 @@ while True:
         if pickle.loads(message)[1] == 2:
             filename = "alica.txt"
             os.path.getsize("alica.txt")
-            with open("alica.txt", 'rb') as file:
+            with open("alica.txt", 'r') as file:
                 bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
-                client_socket.sendto(bytes_to_send, server_address)
+                print(f"Len: {len(bytes_to_send)}")
+                # client_socket.sendto(bytes_to_send, server_address)
+                send_piece_of_data(bytes_to_send, 1)
 
 # send(DISCONNECT_MESSAGE)
 

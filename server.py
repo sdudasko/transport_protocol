@@ -22,17 +22,17 @@ print(f"[LISTENING] Server is listening on {SERVER}")
 
 
 def send(msg, address):
-    message = msg.encode(FORMAT)
+    message = msg.encode(FORMAT).strip()
     server_socket.sendto(message, address)
 
 
 def send_ack(address):
     udp_header_arr = (
-        shared.get_fragment_order(),
+        shared.get_fragment_order(0),
         shared.get_signal_message('ACKNOWLEDGEMENT'),
-        shared.get_fragment_order(),
+        shared.get_fragment_order(0),
         shared.get_crc(),
-        shared.get_data()
+        shared.get_data(b'')
     )
     udp_header = pickle.dumps(udp_header_arr)
     data = b""
@@ -51,8 +51,13 @@ if message:
 
         message, address = server_socket.recvfrom(MAX_DATA_SIZE)
 
-        if (message):
-            print(message)
+        if message:
+            print("HEADER...")
+
+            print(pickle.loads(message))
+
+            print("ENDHEADER...")
+            print(message[(config.header['HEADER_SIZE'] + 1):].decode())
 
 else:
     pass
