@@ -12,7 +12,7 @@ signals = dict(
 # addressing size might be smaller if user opts to send smaller fragments
 header = dict(
     MAX_ADDRESSING_SIZE = 1500,
-    MAX_ADDRESSING_SIZE_WITHOUT_HEADER = 1452, # TODO - should be 1456 but there are some 4 bytes in loopback idk what are these
+    MAX_ADDRESSING_SIZE_WITHOUT_HEADER = 1454, # TODO - should be 1456 but there are some 4 bytes in loopback idk what are these
     HEADER_SIZE = 14,
 )
 data = dict(
