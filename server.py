@@ -38,7 +38,6 @@ def send_ack(address):
 
 
 def check_for_crc_match(compared_crc, data):
-
     calculated_crc = shared.calculate_crc(data)
     calculated_crc = int(calculated_crc[2:], 16)
 
@@ -60,21 +59,15 @@ if message:
 
         if message and int.from_bytes(message[2:4], 'little') == config.signals['FILENAME']:
 
-            new_file = open("novy_subor_" +
-                            message[
-                            (config.header['HEADER_SIZE']):
-                            (config.header['HEADER_SIZE'] + int.from_bytes(message[4:8], 'little'))
-                            ].decode('utf-8'), 'wb'
-                            )
+            hl = config.header['HEADER_SIZE'] + int.from_bytes(message[4:8], 'little')
+            new_file = open("n" + message[(config.header['HEADER_SIZE']):hl].decode('utf-8'), 'wb')
 
             message, address = server_socket.recvfrom(MAX_DATA_SIZE)
 
             if message and int.from_bytes(message[2:4], 'little') == config.signals['DATA_SENDING']:
 
                 if not check_for_crc_match(message[10:14], message[14:]):
-                    print("###########################")
-                    print("CRC MISMATCH!")
-                    print("###########################")
+                    print("########################### CRC MISMATCH! ###########################")
 
                 # message, address = server_socket.recvfrom(MAX_DATA_SIZE)
                 new_file.write(message[(config.header[
@@ -85,9 +78,7 @@ if message:
                     new_file.write(message[(config.header['HEADER_SIZE']):])
 
                     if not check_for_crc_match(message[10:14], message[14:]):
-                        print("###########################")
-                        print("CRC MISMATCH!")
-                        print("###########################")
+                        print("########################### CRC MISMATCH! ###########################")
 
                     if int.from_bytes(message[4:8], 'little') != config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER']:
                         message, address = server_socket.recvfrom(MAX_DATA_SIZE)

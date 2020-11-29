@@ -92,10 +92,10 @@ while True:
 
                 while bytes_to_send != b'':
                     i += 1
-                    if i == 2:
-                        send_piece_of_data(bytes_to_send, i, True)
-                    else:
-                        send_piece_of_data(bytes_to_send, i)
+                    # if i == 2:
+                    #     send_piece_of_data(bytes_to_send, i, True)
+                    # else:
+                    #     send_piece_of_data(bytes_to_send, i)
 
 
                     bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])

@@ -38,7 +38,7 @@ def get_crc(data_in_bytes):
     return int(crc_hex[2:], 16).to_bytes(4, byteorder='little')
 
 
-def get_data(data_in_bytes, mismatch_simulation = False):
+def get_data(data_in_bytes, mismatch_simulation=False):
     message = data_in_bytes
 
     if type(data_in_bytes) is not bytes:
@@ -50,9 +50,6 @@ def get_data(data_in_bytes, mismatch_simulation = False):
         message = message[:2] + 'R'.encode('utf-8') + message[2 + 1:]
         message = message[:3] + 'O'.encode('utf-8') + message[3 + 1:]
         message = message[:4] + 'R'.encode('utf-8') + message[4 + 1:]
-
-
-
 
     msg_length = len(message)
     send_length = str(msg_length).encode(config.common['FORMAT']).strip()
