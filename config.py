@@ -6,6 +6,7 @@ common = dict(
 signals = dict(
     CONNECTION_INITIALIZATION = 1,
     ACKNOWLEDGEMENT = 2,
+    FILENAME = 9,
     DATA_SENDING = 11, # TODO - nie je v dokumentacii, treba doplnit
 )
 # HEADER BASIC INFO - some of the properties are not used in all cases:

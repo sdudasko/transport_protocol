@@ -37,55 +37,49 @@ def send_ack(address):
     server_socket.sendto(udp_header_arr, address)
 
 
-# while True:
-message, address = server_socket.recvfrom(MAX_DATA_SIZE)  # We are waiting for init message
+message, address = server_socket.recvfrom(MAX_DATA_SIZE)  # 1. WAITING FOR INIT MESSAGE
 
 if message:
 
     # If the message we got is initialization message
     if int.from_bytes(message[2:4], 'little') == config.signals['CONNECTION_INITIALIZATION']:
 
+        # 1. SENDING ACK TO INIT COMMUNICATION AND AT THIS POINT INITIALIZATION IS DONE
         send_ack(address)
 
+        # 2. RECEIVING NAME OF FILE AND CREATING BLANK FILE WITH CORRECT NAME
         message, address = server_socket.recvfrom(MAX_DATA_SIZE)
 
-        if message and int.from_bytes(message[2:4], 'little') == config.signals['DATA_SENDING']:
+        if message and int.from_bytes(message[2:4], 'little') == config.signals['FILENAME']:
 
-            new_file = open('novovytvoreny.png', 'wb')
-            new_file.write(message[(config.header['HEADER_SIZE']):])
+            new_file = open("novy_subor_"+
+                message[
+                    (config.header['HEADER_SIZE']):
+                    (config.header['HEADER_SIZE'] + int.from_bytes(message[4:8], 'little'))
+                ].decode('utf-8'), 'wb'
+            )
 
-            while True:
+            message, address = server_socket.recvfrom(MAX_DATA_SIZE)
 
-                message, address = server_socket.recvfrom(MAX_DATA_SIZE)
-                new_file.write(message[(config.header['HEADER_SIZE'] ):])
+            if message and int.from_bytes(message[2:4], 'little') == config.signals['DATA_SENDING']:
 
-                if int.from_bytes(message[4:8], 'little') != config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER']:
+                # message, address = server_socket.recvfrom(MAX_DATA_SIZE)
+                new_file.write(message[(config.header['HEADER_SIZE']):]) # Musime uz tu dat zapis prveho lebo sme ho dostali pri sprave s tym, ze zasielame data
+
+                while True:
                     message, address = server_socket.recvfrom(MAX_DATA_SIZE)
                     new_file.write(message[(config.header['HEADER_SIZE'] ):])
-                    break
+
+                    if int.from_bytes(message[4:8], 'little') != config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER']:
+                        message, address = server_socket.recvfrom(MAX_DATA_SIZE)
+                        new_file.write(message[(config.header['HEADER_SIZE'] ):])
+                        break
+            else:
+                raise ValueError("We were expecting to get filename.")
+    else:
+        raise ValueError("We were expecting to get init message.")
 
 
 
 else:
     pass
-
-    # Prva sprava nam da vediet, aku velkost bude mat prichadzajuca sprava a potom prijimeme
-    # spravu s velkostou, ktoru sme zistili
-
-    # msg_length, address = server_socket.recvfrom(HEADER_SIZE)
-    # msg_length = msg_length.decode(FORMAT)
-    #
-    # if msg_length:
-    #     print(f"Printing msg len: {msg_length}")
-    #
-    #     msg_length = int(msg_length)
-    #
-    #     msg = "Welcome to the server!"
-    #     msg = f'{len(msg):<{HEADER_SIZE}}' + msg  # Nastavi fixny header size a za to doplni tu msg
-    #     server_socket.sendto(bytes(msg.encode(FORMAT)), address)
-    #     message, addr = server_socket.recvfrom(msg_length)
-    #
-    #     if message == DISCONNECT_MESSAGE:
-    #         connected = False
-    #
-    #     print(f"[{addr}] {message}")

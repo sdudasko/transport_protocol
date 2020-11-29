@@ -29,6 +29,22 @@ def send_piece_of_data(bytes_to_send, order):
     client_socket.sendto(udp_header_arr, server_address)
 
 
+def send_filename_message(filename_arg): # _arg because of shadowing the outer scope var name
+    print("ffs")
+    print(filename_arg)
+    udp_header_arr = b''.join([
+        shared.get_fragment_order(1), # Message with filename has order number 1, but it does not matter really
+        shared.get_signal_message('FILENAME'),
+        shared.get_fragment_length(filename_arg),
+        shared.get_number_of_fragments(),
+        shared.get_crc(),
+        shared.get_data(filename_arg)['data']
+    ])
+    # print(int.from_bytes(shared.get_signal_message('FILENAME')[2:4], 'little'))
+
+    client_socket.sendto(udp_header_arr, server_address)
+
+
 def send(msg):
     _message = msg.encode(FORMAT).strip()
     msg_length = len(_message)
@@ -50,8 +66,9 @@ def send_init():
     client_socket.sendto(udp_header_arr, server_address)
 
 
-# 1. FIRST WE SEND INIT MESSAGE TO THE SERVER SO WE WANT TO INITIALIZE A CONNECTION
 while True:
+
+    # 1. FIRST WE SEND INIT MESSAGE TO THE SERVER SO WE WANT TO INITIALIZE A CONNECTION
     send_init()  # We sent init message, now we listen for message from ACK from server
     message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
 
@@ -60,7 +77,12 @@ while True:
         # not really connected since UDP is connectionless but kind of
 
         if int.from_bytes(message[2:4], 'little') == 2:
+
+            # 2. SENDING FILENAME
             filename = "adad.png"
+            send_filename_message(filename)
+
+            # Just for testing purposes, rm then
             size_of_file_to_send = os.path.getsize(filename)
             print(f"Size of file: {size_of_file_to_send}")
 

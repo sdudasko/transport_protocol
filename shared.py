@@ -15,6 +15,7 @@ def get_fragment_order(order):
 
 
 def get_signal_message(signal):
+    print(f"Sign: {signal}")
     sign = config.signals[signal].to_bytes(2, byteorder='little')
     return sign
 
