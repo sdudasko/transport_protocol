@@ -6,6 +6,8 @@ common = dict(
 signals = dict(
     CONNECTION_INITIALIZATION = 1,
     ACKNOWLEDGEMENT = 2,
+    FRAGMENT_ACK_OK = 6,
+    FRAGMENT_ACK_CRC_MISMATCH = 7,
     FILENAME = 9,
     DATA_SENDING = 11, # TODO - nie je v dokumentacii, treba doplnit
 )

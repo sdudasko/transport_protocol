@@ -1,12 +1,9 @@
 import socket
-import time
-import struct
-# import pickle
 import shared
-
 import config
+import sys
 
-BLOCK_SIZE = 15
+BLOCK_SIZE = 5
 HEADER_SIZE = 14
 MAX_DATA_SIZE = 1500
 
@@ -65,13 +62,12 @@ if message:
             message, address = server_socket.recvfrom(MAX_DATA_SIZE)
 
             if message and int.from_bytes(message[2:4], 'little') == config.signals['DATA_SENDING']:
+                i = 1 #
 
                 if not check_for_crc_match(message[10:14], message[14:]):
                     print("########################### CRC MISMATCH! ###########################")
 
-                # message, address = server_socket.recvfrom(MAX_DATA_SIZE)
-                new_file.write(message[(config.header[
-                    'HEADER_SIZE']):])  # Musime uz tu dat zapis prveho lebo sme ho dostali pri sprave s tym, ze zasielame data
+                new_file.write(message[(config.header['HEADER_SIZE']):])  # Musime uz tu dat zapis prveho lebo sme ho dostali pri sprave s tym, ze zasielame data
 
                 while True:
                     message, address = server_socket.recvfrom(MAX_DATA_SIZE)
@@ -80,6 +76,7 @@ if message:
                     if not check_for_crc_match(message[10:14], message[14:]):
                         print("########################### CRC MISMATCH! ###########################")
 
+                    i += 1
                     if int.from_bytes(message[4:8], 'little') != config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER']:
                         message, address = server_socket.recvfrom(MAX_DATA_SIZE)
                         new_file.write(message[(config.header['HEADER_SIZE']):])
