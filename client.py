@@ -4,6 +4,7 @@ import config
 import shared
 import os
 import sys
+import crcmod
 
 BLOCK_SIZE = 15
 HEADER_SIZE = 14
@@ -16,31 +17,33 @@ server_address = (socket.gethostname(), 1234)
 client_address = (socket.gethostname(), 1235)
 
 
-def send_piece_of_data(bytes_to_send, order):
+def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation = False):
+    correct_data_crc = False
+    if mismatch_simulation:
+        correct_data_crc = shared.get_crc(bytes_to_send_arg)
+
     udp_header_arr = b''.join([
         shared.get_fragment_order(order),
         shared.get_signal_message('DATA_SENDING'),
-        shared.get_fragment_length(bytes_to_send),
+        shared.get_fragment_length(bytes_to_send_arg),
         shared.get_number_of_fragments(),
-        shared.get_crc(),
-        shared.get_data(bytes_to_send)['data']
+        shared.get_crc(bytes_to_send_arg) if not mismatch_simulation else correct_data_crc,
+        shared.get_data(bytes_to_send_arg, mismatch_simulation)['data']
     ])
 
     client_socket.sendto(udp_header_arr, server_address)
 
 
 def send_filename_message(filename_arg): # _arg because of shadowing the outer scope var name
-    print("ffs")
-    print(filename_arg)
+
     udp_header_arr = b''.join([
         shared.get_fragment_order(1), # Message with filename has order number 1, but it does not matter really
         shared.get_signal_message('FILENAME'),
         shared.get_fragment_length(filename_arg),
         shared.get_number_of_fragments(),
-        shared.get_crc(),
+        shared.get_crc(b''), # TODO - Chceme tu robit CRC ?
         shared.get_data(filename_arg)['data']
     ])
-    # print(int.from_bytes(shared.get_signal_message('FILENAME')[2:4], 'little'))
 
     client_socket.sendto(udp_header_arr, server_address)
 
@@ -60,7 +63,7 @@ def send_init():
         shared.get_signal_message('CONNECTION_INITIALIZATION'),
         shared.get_fragment_length(b''),
         shared.get_number_of_fragments(),
-        shared.get_crc()
+        shared.get_crc(b'')
 
     ])
     client_socket.sendto(udp_header_arr, server_address)
@@ -82,47 +85,18 @@ while True:
             filename = "adad.png"
             send_filename_message(filename)
 
-            # Just for testing purposes, rm then
-            size_of_file_to_send = os.path.getsize(filename)
-            print(f"Size of file: {size_of_file_to_send}")
-
             i = 1
             with open(filename, 'rb') as file:
-                bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
 
-                send_piece_of_data(bytes_to_send, i)
+                bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
 
                 while bytes_to_send != b'':
                     i += 1
+                    if i == 2:
+                        send_piece_of_data(bytes_to_send, i, True)
+                    else:
+                        send_piece_of_data(bytes_to_send, i)
+
+
                     bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
                     send_piece_of_data(bytes_to_send, i)
-
-# send(DISCONNECT_MESSAGE)
-
-# while True:
-#
-#     new_message = True
-#     full_message = ''
-#
-#     while True:
-#         # Receive response
-#         message_len = 0
-#
-#         message, server = client_socket.recvfrom(16) # Value when to stop reading
-#         print(message)
-#         message = message.decode(FORMAT)
-#         abc = bytes(message[:HEADER_SIZE], FORMAT)
-#
-#         if new_message:
-#             if abc:
-#                 message_len = int(abc)
-#                 new_message = False
-#                 print(message_len)
-#
-#         full_message += message
-#
-#         if len(full_message) - HEADER_SIZE == message_len:
-#             print(f"Printing full message: {full_message}")
-#             new_message = True
-#             full_message = ''
-#             print("in the branch")
