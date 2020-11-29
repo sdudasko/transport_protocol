@@ -60,6 +60,7 @@ if message:
             new_file = open("n" + message[(config.header['HEADER_SIZE']):hl].decode('utf-8'), 'wb')
 
             message, address = server_socket.recvfrom(MAX_DATA_SIZE)
+            server_block_of_fragments = []
 
             if message and int.from_bytes(message[2:4], 'little') == config.signals['DATA_SENDING']:
                 i = 1 #
@@ -67,11 +68,12 @@ if message:
                 if not check_for_crc_match(message[10:14], message[14:]):
                     print("########################### CRC MISMATCH! ###########################")
 
-                new_file.write(message[(config.header['HEADER_SIZE']):])  # Musime uz tu dat zapis prveho lebo sme ho dostali pri sprave s tym, ze zasielame data
-
+                # new_file.write(message[(config.header['HEADER_SIZE']):])  # Musime uz tu dat zapis prveho lebo sme ho dostali pri sprave s tym, ze zasielame data
+                server_block_of_fragments.append(message[(config.header['HEADER_SIZE']):])
                 while True:
                     message, address = server_socket.recvfrom(MAX_DATA_SIZE)
-                    new_file.write(message[(config.header['HEADER_SIZE']):])
+                    # new_file.write(message[(config.header['HEADER_SIZE']):])
+                    server_block_of_fragments.append(message[(config.header['HEADER_SIZE']):])
 
                     if not check_for_crc_match(message[10:14], message[14:]):
                         print("########################### CRC MISMATCH! ###########################")
@@ -79,7 +81,8 @@ if message:
                     i += 1
                     if int.from_bytes(message[4:8], 'little') != config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER']:
                         message, address = server_socket.recvfrom(MAX_DATA_SIZE)
-                        new_file.write(message[(config.header['HEADER_SIZE']):])
+                        # new_file.write(message[(config.header['HEADER_SIZE']):])
+                        server_block_of_fragments.append(message[(config.header['HEADER_SIZE']):])
                         break
             else:
                 raise ValueError("We were expecting to get filename.")

@@ -88,6 +88,8 @@ while True:
 
                 bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
 
+                client_block_of_fragments = []
+
                 while bytes_to_send != b'':
                     # Uncomment if you want to send trailing data in 1st fragment.
                     # if i == 1 + 1:
@@ -97,7 +99,9 @@ while True:
 
                     bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
                     send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE)
+                    client_block_of_fragments.append(bytes_to_send)
 
+                    print(len(client_block_of_fragments))
                     # We sent BLOCK_SIZE number of fragments, now we wait for reply from server.
                     # If we got everything right we get ack with permission to send next block of data.
                     # If there was an error, we get n msgs where every msg tells in ORDER which fragment was corrupted.
