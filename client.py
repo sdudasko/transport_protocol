@@ -82,16 +82,16 @@ while True:
             filename = "adad.png"
             send_filename_message(filename)
 
-            i = 1
-            n = 0
             with open(filename, 'rb') as file:
 
                 bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
 
                 client_block_of_fragments = []
+                i = 1
+                n = 0
 
                 while bytes_to_send != b'':
-                    # Uncomment if you want to send trailing data in 1st fragment.
+                    # Uncomment if you want to send trailing data in 1st fragment. TOD0 - by some option then
                     # if i == 1 + 1:
                     #     send_piece_of_data(bytes_to_send, i, True)
                     # else:
@@ -99,23 +99,28 @@ while True:
 
                     bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
                     send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE)
+
+                    # Storing these data here just for backup, then we will overwrite those, we could probably
+                    # solve it even without this helper variable with some seek func
                     client_block_of_fragments.append(bytes_to_send)
 
-                    print(len(client_block_of_fragments))
+
                     # We sent BLOCK_SIZE number of fragments, now we wait for reply from server.
                     # If we got everything right we get ack with permission to send next block of data.
                     # If there was an error, we get n msgs where every msg tells in ORDER which fragment was corrupted.
                     if i == BLOCK_SIZE:
+
                         message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
 
                         if int.from_bytes(message[2:4], 'little') == config.signals['FRAGMENT_ACK_OK']:
                             pass # Everything is fine, we can send more data
+                                 # TODO - Now flush the variable client_block_of_fragments and append to new arr
                         elif int.from_bytes(message[2:4], 'little') == config.signals['FRAGMENT_ACK_CRC_MISMATCH']:
                             pass
                         else:
                             raise ValueError("We got nor OK ACK or CRC MISMATCH.")
 
-                        i = 1
+                        i = 0
                         n += 1
 
                     i += 1
