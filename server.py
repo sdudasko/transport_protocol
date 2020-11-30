@@ -23,11 +23,12 @@ def send(msg, address):
     server_socket.sendto(message, address)
 
 
-def send_ack(address, sign = 'ACKNOWLEDGEMENT'):
+def send_ack(address, sign='ACKNOWLEDGEMENT', fragment_order=0):
     udp_header_arr = b''.join([
-        shared.get_fragment_order(0),
+        shared.get_fragment_order(fragment_order),
         shared.get_signal_message(sign),
-        shared.get_fragment_order(0),
+        shared.get_fragment_length(b''),
+        shared.get_number_of_fragments(),
         shared.get_crc(b''),
         shared.get_data(b'')['data']
     ])
@@ -62,32 +63,46 @@ if message:
             # 3. RECEIVING FIRST FRAGMENT OF 1st block
             message, address = server_socket.recvfrom(MAX_DATA_SIZE)
             server_block_of_fragments = []
+            mismatched_fragment_order_numbers = list()
 
             if message and int.from_bytes(message[2:4], 'little') == config.signals['DATA_SENDING']:
-                i = 1 #
+                i = 1  #
 
                 if not check_for_crc_match(message[10:14], message[14:]):
+                    mismatched_fragment_order_numbers.append(int.from_bytes(message[0:2], 'little'))
                     print("########################### CRC MISMATCH! ###########################")
 
-                # new_file.write(message[(config.header['HEADER_SIZE']):])  # Musime uz tu dat zapis prveho lebo sme ho dostali pri sprave s tym, ze zasielame data
+                # Musime uz tu dat zapis prveho lebo sme ho dostali pri sprave s tym, ze zasielame data
+                # new_file.write(message[(config.header['HEADER_SIZE']):])
                 server_block_of_fragments.append(message[(config.header['HEADER_SIZE']):])
                 while True:
                     message, address = server_socket.recvfrom(MAX_DATA_SIZE)
                     # new_file.write(message[(config.header['HEADER_SIZE']):])
                     server_block_of_fragments.append(message[(config.header['HEADER_SIZE']):])
 
-                    if not check_for_crc_match(message[10:14], message[14:]): # TODO - send wrong ack
-                        print("########################### CRC MISMATCH! ###########################")
+                    if not check_for_crc_match(message[10:14], message[14:]):  # TODO - send wrong ack
+                        mismatched_fragment_order_numbers.append(int.from_bytes(message[0:2], 'little'))
+                        # print("########################### CRC MISMATCH! ###########################")
 
                     i += 1
 
                     if i == BLOCK_SIZE:
                         new_file.write(message[(config.header['HEADER_SIZE']):] * BLOCK_SIZE)
-                        send_ack(address, 'FRAGMENT_ACK_OK')
-                        i = 0
 
+                        if len(mismatched_fragment_order_numbers) == 0:
+                            print("Sending OK")
+                            send_ack(address, 'FRAGMENT_ACK_OK')
+                            i = 0
+                        else:  # We have some data that did not pass CRC test so send information about that
+                            c = 0
 
-                    if int.from_bytes(message[4:8], 'little') != config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER']: # TODO - toto porovnat lepsie
+                            while len(mismatched_fragment_order_numbers) > 0:
+                                send_ack(address, 'FRAGMENT_ACK_CRC_MISMATCH', mismatched_fragment_order_numbers[c])
+                                del mismatched_fragment_order_numbers[c]
+                                c += 1
+
+                    if int.from_bytes(message[4:8], 'little') != config.header[
+                        'MAX_ADDRESSING_SIZE_WITHOUT_HEADER']:  # TODO - toto porovnat lepsie
                         message, address = server_socket.recvfrom(MAX_DATA_SIZE)
                         # new_file.write(message[(config.header['HEADER_SIZE']):])
                         server_block_of_fragments.append(message[(config.header['HEADER_SIZE']):])
