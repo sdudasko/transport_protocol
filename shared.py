@@ -24,9 +24,9 @@ def get_fragment_length(bytes_arg):
     return len(bytes_arg).to_bytes(4, byteorder='little')
 
 
-def get_number_of_fragments():
-    abc = 19  # TODO
-    return abc.to_bytes(2, byteorder='little')
+# TODO - Now only used in ACK so we know how many fragments were mismatched
+def get_number_of_fragments(number_of_fragments = 0):
+    return number_of_fragments.to_bytes(2, byteorder='little')
 
 
 def get_crc(data_in_bytes):

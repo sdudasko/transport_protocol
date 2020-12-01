@@ -23,12 +23,12 @@ def send(msg, address):
     server_socket.sendto(message, address)
 
 
-def send_ack(address, sign='ACKNOWLEDGEMENT', fragment_order=0):
+def send_ack(address, sign='ACKNOWLEDGEMENT', fragment_order=0, number_of_fragments = 0):
     udp_header_arr = b''.join([
         shared.get_fragment_order(fragment_order),
         shared.get_signal_message(sign),
         shared.get_fragment_length(b''),
-        shared.get_number_of_fragments(),
+        shared.get_number_of_fragments(number_of_fragments),
         shared.get_crc(b''),
         shared.get_data(b'')['data']
     ])
@@ -97,7 +97,7 @@ if message:
                             c = 0
 
                             while len(mismatched_fragment_order_numbers) > 0:
-                                send_ack(address, 'FRAGMENT_ACK_CRC_MISMATCH', mismatched_fragment_order_numbers[c])
+                                send_ack(address, 'FRAGMENT_ACK_CRC_MISMATCH', mismatched_fragment_order_numbers[c], len(mismatched_fragment_order_numbers))
                                 del mismatched_fragment_order_numbers[c]
                                 c += 1
 
