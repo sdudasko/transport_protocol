@@ -3,6 +3,8 @@ import socket
 import config
 import shared
 import sys
+import os
+import math
 
 BLOCK_SIZE = 5
 HEADER_SIZE = 14
@@ -15,7 +17,7 @@ server_address = (socket.gethostname(), 1234)
 client_address = (socket.gethostname(), 1235)
 
 
-def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False):
+def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False, nch = 0):
     correct_data_crc = False
     if mismatch_simulation:
         correct_data_crc = shared.get_crc(bytes_to_send_arg)
@@ -24,7 +26,7 @@ def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False):
         shared.get_fragment_order(order),
         shared.get_signal_message('DATA_SENDING'),
         shared.get_fragment_length(bytes_to_send_arg),
-        shared.get_number_of_fragments(),
+        shared.get_number_of_fragments(nch),
         shared.get_crc(bytes_to_send_arg) if not mismatch_simulation else correct_data_crc,
         shared.get_data(bytes_to_send_arg, mismatch_simulation)['data']
     ])
@@ -95,7 +97,7 @@ while True:
                     # Uncomment if you want to send trailing data in 1st fragment. TOD0 - by some option then
                     # ------------------
                     if i == 1 and not z:
-                        send_piece_of_data(bytes_to_send, i, True)
+                        send_piece_of_data(bytes_to_send, i, False, nch=math.ceil(os.stat(filename).st_size/config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER']))
                         client_block_of_fragments[i] = bytes_to_send
                         # client_block_of_fragments.append(bytes_to_send)
                         i += 1
@@ -103,8 +105,8 @@ while True:
                     # ------------------
 
                     bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
+                    send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=math.ceil(os.stat(filename).st_size/config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER']))
 
-                    send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE)
                     # Storing these data here just for backup, then we will overwrite those, we could probably
                     # solve it even without this helper variable with some seek func.
                     # client_block_of_fragments.append(bytes_to_send)
@@ -129,10 +131,12 @@ while True:
                             tmp_client_block_of_fragments = client_block_of_fragments
                             client_block_of_fragments = {}  # TODO - does this work? Check if it does not del the ref
 
-                            send_piece_of_data(tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment], order_of_first_crc_mismatched_fragment)
+                            send_piece_of_data(tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment],
+                                               order_of_first_crc_mismatched_fragment, nch=math.ceil(os.stat(filename).st_size/config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER']))
 
                             # client_block_of_fragments.append(tmp_client_block_of_fragments[0])
-                            client_block_of_fragments[i + n * BLOCK_SIZE] = tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment]
+                            client_block_of_fragments[i + n * BLOCK_SIZE] = tmp_client_block_of_fragments[
+                                order_of_first_crc_mismatched_fragment]
                             i += 1
 
                             del tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment]
