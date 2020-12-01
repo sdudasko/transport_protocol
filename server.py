@@ -26,6 +26,7 @@ def send(msg, address):
 
 
 def send_ack(address, sign='ACKNOWLEDGEMENT', fragment_order=0, number_of_fragments=0):
+
     udp_header_arr = b''.join([
         shared.get_fragment_order(fragment_order),
         shared.get_signal_message(sign),
@@ -86,11 +87,14 @@ if message:
 
                         while len(mismatched_fragment_order_numbers) > 0:
                             total_crc_mismatched += 1
+
                             send_ack(address, 'FRAGMENT_ACK_CRC_MISMATCH', mismatched_fragment_order_numbers[c],
                                      len(mismatched_fragment_order_numbers))
                             del mismatched_fragment_order_numbers[c]
                             c += 1
+
                         for key, value in server_block_of_fragments.items():
+                            print(f"BKey: {key} {received_packets_count}")
                             new_file.write(value)
                         break
 
@@ -108,10 +112,12 @@ if message:
 
                     if i == BLOCK_SIZE:
                         if len(mismatched_fragment_order_numbers) == 0:
-                            print("Sending OK")
+
+                            print(len(server_block_of_fragments.items()))
                             send_ack(address, 'FRAGMENT_ACK_OK')
 
                             for key, value in server_block_of_fragments.items():
+                                print(f"FKey: {key} {received_packets_count}")
                                 new_file.write(value)
 
                             server_block_of_fragments.clear() # Some garbage collection

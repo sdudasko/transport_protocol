@@ -17,7 +17,7 @@ server_address = (socket.gethostname(), 1234)
 client_address = (socket.gethostname(), 1235)
 
 
-def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False, nch = 0):
+def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False, nch=0):
     correct_data_crc = False
     if mismatch_simulation:
         correct_data_crc = shared.get_crc(bytes_to_send_arg)
@@ -81,18 +81,20 @@ while True:
         if int.from_bytes(message[2:4], 'little') == 2:
 
             # 2. SENDING FILENAME
-            filename = "mala_alica.txt"
+            filename = "test.txt"
             send_filename_message(filename)
 
             with open(filename, 'rb') as file:
 
                 bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
-                total_fragments = math.ceil(os.stat(filename).st_size/config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
+                total_fragments = math.ceil(
+                    os.stat(filename).st_size / config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
                 client_block_of_fragments = {}
 
                 i = 1
                 n = 0
                 z = False
+                k = False
                 while bytes_to_send != b'':
                     # Change True argument to False if you dont want to simulate crc mismatch
                     # ------------------
@@ -115,8 +117,9 @@ while True:
                                 tmp_client_block_of_fragments = client_block_of_fragments
                                 client_block_of_fragments = {}  # TODO - does this work? Check if it does not del the ref
 
-                                send_piece_of_data(tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment],
-                                                   order_of_first_crc_mismatched_fragment, nch=total_fragments)
+                                send_piece_of_data(
+                                    tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment],
+                                    order_of_first_crc_mismatched_fragment, nch=total_fragments)
 
                                 client_block_of_fragments[i + n * BLOCK_SIZE] = tmp_client_block_of_fragments[
                                     order_of_first_crc_mismatched_fragment]
@@ -125,7 +128,13 @@ while True:
                                 del tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment]
 
                     bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
-                    send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=total_fragments)
+
+                    if k == False and i == 3:
+                        send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=total_fragments, mismatch_simulation=True)
+                        k =True
+                    else:
+                        send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=total_fragments,
+                                           mismatch_simulation=False)
 
                     # Storing these data here just for backup, then we will overwrite those, we could probably
                     # solve it even without this helper variable with some seek func.
@@ -162,15 +171,9 @@ while True:
                             del tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment]
 
                             # -1 bcs we have already received one so this will run only if more than one crc mismatch.
-                            for fragment_with_crc_mismatch in range(int.from_bytes(message[8:10], 'little')):
+                            for fragment_with_crc_mismatch in range(int.from_bytes(message[8:10], 'little')): # TODO
                                 pass
-                                # message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
-                                #
-                                # print("d")
-                                # send_piece_of_data(tmp_client_block_of_fragments[0], i + n * BLOCK_SIZE)
-                                # del tmp_client_block_of_fragments[0]
-                                # client_block_of_fragments.append(bytes_to_send)
-                                # i += 1
+
                         else:
                             raise ValueError("We got nor OK ACK or CRC MISMATCH.")
 
