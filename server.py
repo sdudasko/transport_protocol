@@ -80,6 +80,20 @@ if message:
                 server_block_of_fragments[order_n] = message[(config.header['HEADER_SIZE']):]
 
                 while True:
+
+                    if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
+                        c = 0
+
+                        while len(mismatched_fragment_order_numbers) > 0:
+                            total_crc_mismatched += 1
+                            send_ack(address, 'FRAGMENT_ACK_CRC_MISMATCH', mismatched_fragment_order_numbers[c],
+                                     len(mismatched_fragment_order_numbers))
+                            del mismatched_fragment_order_numbers[c]
+                            c += 1
+                        for key, value in server_block_of_fragments.items():
+                            new_file.write(value)
+                        break
+
                     message, address = server_socket.recvfrom(MAX_DATA_SIZE)
                     received_packets_count += 1
                     order_n = int.from_bytes(message[0:2], 'little')
@@ -112,12 +126,12 @@ if message:
                                 c += 1
                         i = 0
 
-                    if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
-                        print(int.from_bytes(message[8:10], 'little'))
-                        print(received_packets_count)
-                        for key, value in server_block_of_fragments.items():
-                            new_file.write(value)
-                        break
+                    # if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
+                    #     print(int.from_bytes(message[8:10], 'little'))
+                    #     print(received_packets_count)
+                    #     for key, value in server_block_of_fragments.items():
+                    #         new_file.write(value)
+                    #     break
 
             else:
                 raise ValueError("We were expecting to get filename.")

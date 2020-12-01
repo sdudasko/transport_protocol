@@ -81,31 +81,51 @@ while True:
         if int.from_bytes(message[2:4], 'little') == 2:
 
             # 2. SENDING FILENAME
-            filename = "adad.png"
+            filename = "mala_alica.txt"
             send_filename_message(filename)
 
             with open(filename, 'rb') as file:
 
                 bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
-
+                total_fragments = math.ceil(os.stat(filename).st_size/config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
                 client_block_of_fragments = {}
 
                 i = 1
                 n = 0
                 z = False
                 while bytes_to_send != b'':
-                    # Uncomment if you want to send trailing data in 1st fragment. TOD0 - by some option then
+                    # Change True argument to False if you dont want to simulate crc mismatch
                     # ------------------
                     if i == 1 and not z:
-                        send_piece_of_data(bytes_to_send, i, False, nch=math.ceil(os.stat(filename).st_size/config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER']))
+                        send_piece_of_data(bytes_to_send, i, False, nch=total_fragments)
                         client_block_of_fragments[i] = bytes_to_send
                         # client_block_of_fragments.append(bytes_to_send)
                         i += 1
                         z = True
                     # ------------------
 
+                    if total_fragments < BLOCK_SIZE:
+
+                        if (i - 1) == total_fragments:
+                            message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+
+                            if int.from_bytes(message[2:4], 'little') == config.signals['FRAGMENT_ACK_CRC_MISMATCH']:
+                                order_of_first_crc_mismatched_fragment = int.from_bytes(message[0:2], 'little')
+
+                                tmp_client_block_of_fragments = client_block_of_fragments
+                                client_block_of_fragments = {}  # TODO - does this work? Check if it does not del the ref
+
+                                send_piece_of_data(tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment],
+                                                   order_of_first_crc_mismatched_fragment, nch=total_fragments)
+
+                                client_block_of_fragments[i + n * BLOCK_SIZE] = tmp_client_block_of_fragments[
+                                    order_of_first_crc_mismatched_fragment]
+                                i += 1
+
+                                del tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment]
+
                     bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
-                    send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=math.ceil(os.stat(filename).st_size/config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER']))
+                    send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=total_fragments)
 
                     # Storing these data here just for backup, then we will overwrite those, we could probably
                     # solve it even without this helper variable with some seek func.
@@ -132,7 +152,7 @@ while True:
                             client_block_of_fragments = {}  # TODO - does this work? Check if it does not del the ref
 
                             send_piece_of_data(tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment],
-                                               order_of_first_crc_mismatched_fragment, nch=math.ceil(os.stat(filename).st_size/config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER']))
+                                               order_of_first_crc_mismatched_fragment, nch=total_fragments)
 
                             # client_block_of_fragments.append(tmp_client_block_of_fragments[0])
                             client_block_of_fragments[i + n * BLOCK_SIZE] = tmp_client_block_of_fragments[
