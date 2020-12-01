@@ -121,31 +121,34 @@ while True:
                         if int.from_bytes(message[2:4], 'little') == config.signals['FRAGMENT_ACK_OK']:
                             # Next block has already resolved crc mismatches, if they carry on sending mistakes,
                             # they will be stored in this array in next cycle so it's not a problem.
-                            client_block_of_fragments = []
+                            client_block_of_fragments = {}
                         elif int.from_bytes(message[2:4], 'little') == config.signals['FRAGMENT_ACK_CRC_MISMATCH']:
-                            tmp_client_block_of_fragments = client_block_of_fragments
-                            client_block_of_fragments = []  # TODO - does this work? Check if it does not del the ref
 
-                            order_of_first_crc_mismatched_fragment = list(tmp_client_block_of_fragments.keys())[0]
-                            send_piece_of_data(tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment], i + n * BLOCK_SIZE)
-                            print(tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment])
+                            order_of_first_crc_mismatched_fragment = int.from_bytes(message[0:2], 'little')
+
+                            tmp_client_block_of_fragments = client_block_of_fragments
+                            client_block_of_fragments = {}  # TODO - does this work? Check if it does not del the ref
+
+                            send_piece_of_data(tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment], order_of_first_crc_mismatched_fragment)
+
                             # client_block_of_fragments.append(tmp_client_block_of_fragments[0])
-                            client_block_of_fragments[i + n * BLOCK_SIZE] = next(iter(tmp_client_block_of_fragments))
+                            client_block_of_fragments[i + n * BLOCK_SIZE] = tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment]
                             i += 1
 
-                            del tmp_client_block_of_fragments[0]
+                            del tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment]
 
                             # -1 bcs we have already received one so this will run only if more than one crc mismatch.
-                            for fragment_with_crc_mismatch in range(int.from_bytes(message[8:10], 'little') - 1):
-                                message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
-
-                                print("d")
-                                send_piece_of_data(tmp_client_block_of_fragments[0], i + n * BLOCK_SIZE)
-                                del tmp_client_block_of_fragments[0]
-                                client_block_of_fragments.append(bytes_to_send)
-                                i += 1
+                            for fragment_with_crc_mismatch in range(int.from_bytes(message[8:10], 'little')):
+                                pass
+                                # message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+                                #
+                                # print("d")
+                                # send_piece_of_data(tmp_client_block_of_fragments[0], i + n * BLOCK_SIZE)
+                                # del tmp_client_block_of_fragments[0]
+                                # client_block_of_fragments.append(bytes_to_send)
+                                # i += 1
                         else:
                             raise ValueError("We got nor OK ACK or CRC MISMATCH.")
 
-                        i = 0
+                        i = 1
                         n += 1

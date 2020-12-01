@@ -85,14 +85,13 @@ if message:
                         # print("########################### CRC MISMATCH! ###########################")
 
                     i += 1
-
+                    print(i)
                     if i == BLOCK_SIZE:
                         new_file.write(message[(config.header['HEADER_SIZE']):] * BLOCK_SIZE)
 
                         if len(mismatched_fragment_order_numbers) == 0:
                             print("Sending OK")
                             send_ack(address, 'FRAGMENT_ACK_OK')
-                            i = 0
                         else:  # We have some data that did not pass CRC test so send information about that
                             c = 0
 
@@ -100,6 +99,8 @@ if message:
                                 send_ack(address, 'FRAGMENT_ACK_CRC_MISMATCH', mismatched_fragment_order_numbers[c], len(mismatched_fragment_order_numbers))
                                 del mismatched_fragment_order_numbers[c]
                                 c += 1
+                        i = 0
+
 
                     if int.from_bytes(message[4:8], 'little') != config.header[
                         'MAX_ADDRESSING_SIZE_WITHOUT_HEADER']:  # TODO - toto porovnat lepsie
