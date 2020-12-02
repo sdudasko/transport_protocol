@@ -1,19 +1,20 @@
+import math
+import os
 import socket
 
 import config
 import shared
-import sys
-import os
-import math
+import readline
+import time
 
 BLOCK_SIZE = 5
 HEADER_SIZE = 14
 FORMAT = 'utf-8'
 
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-server_address = (socket.gethostname(), 1234)
 client_address = (socket.gethostname(), 1235)
+
+connection_acquired = False
 
 
 def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False, nch=0):
@@ -33,7 +34,7 @@ def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False, nch=
     client_socket.sendto(udp_header_arr, server_address)
 
 
-def send_filename_message(filename_arg, sign = 'FILENAME'):  # _arg because of shadowing the outer scope var name
+def send_filename_message(filename_arg, sign='FILENAME'):  # _arg because of shadowing the outer scope var name
 
     udp_header_arr = b''.join([
         shared.get_fragment_order(1),  # Message with filename has order number 1, but it does not matter really
@@ -45,19 +46,6 @@ def send_filename_message(filename_arg, sign = 'FILENAME'):  # _arg because of s
     ])
 
     client_socket.sendto(udp_header_arr, server_address)
-
-# def send_stdin(message_arg):  # _arg because of shadowing the outer scope var name
-#
-#     udp_header_arr = b''.join([
-#         shared.get_fragment_order(1),  # Message with filename has order number 1, but it does not matter really
-#         shared.get_signal_message('STDIN'),
-#         shared.get_fragment_length(message_arg),
-#         shared.get_number_of_fragments(),
-#         shared.get_crc(b''),
-#         shared.get_data(message_arg)['data']
-#     ])
-#
-#     client_socket.sendto(udp_header_arr, server_address)
 
 
 def send(msg):
@@ -80,12 +68,30 @@ def send_init():
     ])
     client_socket.sendto(udp_header_arr, server_address)
 
-# If filename is not present, handle stdin
-def handle_client_request_to_send_data(message, server, filename = ''):
+def send_keep_alive_ack():
+    udp_header_arr = b''.join([
+        shared.get_fragment_order(0),
+        shared.get_signal_message('KEEP_ALIVE_ACK'),
+        shared.get_fragment_length(b''),
+        shared.get_number_of_fragments(),
+        shared.get_crc(b'')
+
+    ])
+    client_socket.sendto(udp_header_arr, server_address)
+
+
+def listen_for_keep_alive():
+    message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+    # send_keep_alive_ack()
+    print(message)
+
+
+def handle_client_request_to_send_data(message, server, filename='', already_connected=False):
+
     if message:
         # We got ack after init from server, now are "connected",
         # not really connected since UDP is connectionless but kind of.
-        if shared.transl(message, 2, 4) == 2:
+        if (shared.transl(message, 2, 4) == 2) or already_connected:
 
             # 2. SENDING FILENAME
             if filename == '':
@@ -197,13 +203,42 @@ def handle_client_request_to_send_data(message, server, filename = ''):
                         n += 1
 
             # File is all read
-            print("Hello:)")
-        print(message)
 
+        # listen_for_keep_alive()
+
+
+def client_prompt_ip(prompt, prefill='127.0.0.1'):
+    readline.set_startup_hook(lambda: readline.insert_text(prefill))
+    try:
+        return input(prompt)
+    finally:
+        readline.set_startup_hook()
+
+def client_prompt_port(prompt, prefill='1234'):
+    readline.set_startup_hook(lambda: readline.insert_text(prefill))
+    try:
+        return input(prompt)
+    finally:
+        readline.set_startup_hook()
 
 while True:
     # 1. FIRST WE SEND INIT MESSAGE TO THE SERVER SO WE WANT TO INITIALIZE A CONNECTION
-    send_init()  # We sent init message, now we listen for message from ACK from server
-    message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
 
+    if not connection_acquired:
+        print("Zadaj cielovu IP adresu: ")
+        server_ip_address = client_prompt_ip("")
+        print("Zadaj adresu cieloveho portu: ")
+        server_port = client_prompt_port("")
+
+        server_address = (socket.gethostname(), int(server_port))
+
+    send_init()  # We sent init message, now we listen for message from ACK from server
+
+    message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+    connection_acquired = True
     handle_client_request_to_send_data(message, server, 'adad.png')
+
+    handle_client_request_to_send_data(message, server, '04_proc.pdf', already_connected=True)
+
+    time.sleep(2)
+    # listen_for_keep_alive()
