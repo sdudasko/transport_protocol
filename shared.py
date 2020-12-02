@@ -64,3 +64,7 @@ def calculate_crc(data):
     crc32_func = crcmod.mkCrcFun(0x104c11db7, initCrc=0, xorOut=0xFFFFFFFF)
     result = hex(crc32_func(data))
     return result
+
+
+def transl(message, offset1, offset2, type = 'little'):
+    return int.from_bytes(message[offset1:offset2], type)

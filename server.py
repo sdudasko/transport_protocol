@@ -50,7 +50,7 @@ message, address = server_socket.recvfrom(MAX_DATA_SIZE)  # 1. WAITING FOR INIT 
 if message:
 
     # If the message we got is initialization message
-    if int.from_bytes(message[2:4], 'little') == config.signals['CONNECTION_INITIALIZATION']:
+    if shared.transl(message, 2, 4) == config.signals['CONNECTION_INITIALIZATION']:
 
         # 1. SENDING ACK TO INIT COMMUNICATION AND AT THIS POINT INITIALIZATION IS DONE
         send_ack(address)
@@ -58,7 +58,7 @@ if message:
         # 2. RECEIVING NAME OF FILE AND CREATING BLANK FILE WITH CORRECT NAME
         message, address = server_socket.recvfrom(MAX_DATA_SIZE)
 
-        if message and int.from_bytes(message[2:4], 'little') == config.signals['FILENAME']:
+        if message and shared.transl(message, 2, 4) == config.signals['FILENAME']:
 
             hl = config.header['HEADER_SIZE'] + int.from_bytes(message[4:8], 'little')
             new_file = open("bbb" + message[(config.header['HEADER_SIZE']):hl].decode('utf-8'), 'wb')
@@ -69,13 +69,13 @@ if message:
             server_block_of_fragments = {}
             mismatched_fragment_order_numbers = list()
 
-            if message and int.from_bytes(message[2:4], 'little') == config.signals['DATA_SENDING']:
+            if message and shared.transl(message, 2, 4) == config.signals['DATA_SENDING']:
                 received_packets_count += 1
                 i = 1  #
-                order_n = int.from_bytes(message[0:2], 'little')
+                order_n = shared.transl(message, 0, 2)
 
                 if not check_for_crc_match(message[10:14], message[14:]):
-                    mismatched_fragment_order_numbers.append(int.from_bytes(message[0:2], 'little'))
+                    mismatched_fragment_order_numbers.append(shared.transl(message, 0, 2))
                     print(f"################## CRC MISMATCH vo fragmente {order_n} ! ##################")
 
                 server_block_of_fragments[order_n] = message[(config.header['HEADER_SIZE']):]
@@ -100,12 +100,12 @@ if message:
 
                     message, address = server_socket.recvfrom(MAX_DATA_SIZE)
                     received_packets_count += 1
-                    order_n = int.from_bytes(message[0:2], 'little')
+                    order_n = shared.transl(message, 0, 2)
 
                     server_block_of_fragments[order_n] = message[(config.header['HEADER_SIZE']):]
 
                     if not check_for_crc_match(message[10:14], message[14:]):  # TODO - send wrong ack
-                        mismatched_fragment_order_numbers.append(int.from_bytes(message[0:2], 'little'))
+                        mismatched_fragment_order_numbers.append(shared.transl(message, 0, 2))
                         print(f"################## CRC MISMATCH vo fragmente {order_n} ! ##################")
 
                     i += 1

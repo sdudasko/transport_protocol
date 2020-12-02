@@ -68,18 +68,17 @@ def send_init():
     ])
     client_socket.sendto(udp_header_arr, server_address)
 
-
-def handle_client_request_to_send_data(message, server):
+# If filename is not present, handle stdin
+def handle_client_request_to_send_data(message, server, filename = ""):
     if message:
         # We got ack after init from server, now are "connected",
         # not really connected since UDP is connectionless but kind of.
-        if int.from_bytes(message[2:4], 'little') == 2:
+        if shared.transl(message, 2, 4) == 2:
 
             # 2. SENDING FILENAME
-            filename = "adad.png"
             send_filename_message(filename)
 
-            max_addressing_size_without_header = shared.get_max_addressing_size_without_header(100)
+            max_addressing_size_without_header = shared.get_max_addressing_size_without_header()
 
             with open(filename, 'rb') as file:
 
@@ -93,7 +92,7 @@ def handle_client_request_to_send_data(message, server):
                 z = False
                 k = False
                 while bytes_to_send != b'':
-                    # Change True argument to False if you dont want to simulate crc mismatch
+                    # Refactor that, not needed anymore in this state
                     # ------------------
                     if i == 1 and not z:
                         send_piece_of_data(bytes_to_send, i, False, nch=total_fragments)
@@ -107,7 +106,7 @@ def handle_client_request_to_send_data(message, server):
                         if (i - 1) == total_fragments:
                             message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
 
-                            if int.from_bytes(message[2:4], 'little') == config.signals['FRAGMENT_ACK_CRC_MISMATCH']:
+                            if shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_CRC_MISMATCH']:
                                 order_of_first_crc_mismatched_fragment = int.from_bytes(message[0:2], 'little')
 
                                 tmp_client_block_of_fragments = client_block_of_fragments
@@ -146,13 +145,13 @@ def handle_client_request_to_send_data(message, server):
 
                         message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
 
-                        if int.from_bytes(message[2:4], 'little') == config.signals['FRAGMENT_ACK_OK']:
+                        if shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_OK']:
                             # Next block has already resolved crc mismatches, if they carry on sending mistakes,
                             # they will be stored in this array in next cycle so it's not a problem.
                             client_block_of_fragments = {}
-                        elif int.from_bytes(message[2:4], 'little') == config.signals['FRAGMENT_ACK_CRC_MISMATCH']:
+                        elif shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_CRC_MISMATCH']:
 
-                            order_of_first_crc_mismatched_fragment = int.from_bytes(message[0:2], 'little')
+                            order_of_first_crc_mismatched_fragment = shared.transl(message, 0, 2)
 
                             tmp_client_block_of_fragments = client_block_of_fragments
                             client_block_of_fragments = {}
@@ -168,7 +167,7 @@ def handle_client_request_to_send_data(message, server):
 
                             # TODO - more errors in single block
                             # -1 bcs we have already received one so this will run only if more than one crc mismatch.
-                            for fragment_with_crc_mismatch in range(int.from_bytes(message[8:10], 'little')):  # TODO
+                            for fragment_with_crc_mismatch in range(shared.transl(message, 8, 10)):  # TODO
                                 pass
 
                         else:
