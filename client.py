@@ -69,13 +69,7 @@ def send_init():
     client_socket.sendto(udp_header_arr, server_address)
 
 
-
-while True:
-
-    # 1. FIRST WE SEND INIT MESSAGE TO THE SERVER SO WE WANT TO INITIALIZE A CONNECTION
-    send_init()  # We sent init message, now we listen for message from ACK from server
-    message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
-
+def handle_client_request_to_send_data(message, server):
     if message:
         # We got ack after init from server, now are "connected",
         # not really connected since UDP is connectionless but kind of.
@@ -133,8 +127,9 @@ while True:
 
                     # Simulation of CRC mismatch on 3. fragment
                     if k == False and i == 3:
-                        send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=total_fragments, mismatch_simulation=True)
-                        k =True
+                        send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=total_fragments,
+                                           mismatch_simulation=True)
+                        k = True
                     else:
                         send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=total_fragments,
                                            mismatch_simulation=False)
@@ -173,7 +168,7 @@ while True:
 
                             # TODO - more errors in single block
                             # -1 bcs we have already received one so this will run only if more than one crc mismatch.
-                            for fragment_with_crc_mismatch in range(int.from_bytes(message[8:10], 'little')): # TODO
+                            for fragment_with_crc_mismatch in range(int.from_bytes(message[8:10], 'little')):  # TODO
                                 pass
 
                         else:
@@ -185,3 +180,11 @@ while True:
             # File is all read
             print("Hello:)")
         print(message)
+
+
+while True:
+    # 1. FIRST WE SEND INIT MESSAGE TO THE SERVER SO WE WANT TO INITIALIZE A CONNECTION
+    send_init()  # We sent init message, now we listen for message from ACK from server
+    message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+
+    handle_client_request_to_send_data(message, server)
