@@ -82,7 +82,7 @@ def send_keep_alive_ack():
 
 def listen_for_keep_alive():
     message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
-    # send_keep_alive_ack()
+    send_keep_alive_ack()
     print(message)
 
 
@@ -232,13 +232,13 @@ while True:
 
         server_address = (socket.gethostname(), int(server_port))
 
-    send_init()  # We sent init message, now we listen for message from ACK from server
+        send_init()  # We sent init message, now we listen for message from ACK from server
 
     message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
     connection_acquired = True
     handle_client_request_to_send_data(message, server, 'adad.png')
 
-    handle_client_request_to_send_data(message, server, '04_proc.pdf', already_connected=True)
+    # handle_client_request_to_send_data(message, server, '04_proc.pdf', already_connected=True)
 
-    time.sleep(2)
-    # listen_for_keep_alive()
+    time.sleep(5)
+    listen_for_keep_alive()

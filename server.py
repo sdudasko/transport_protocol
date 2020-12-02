@@ -45,7 +45,7 @@ def send_keepalive(address):
         message, address = server_socket.recvfrom(MAX_DATA_SIZE)
         print(message)
 
-        time.sleep(2)
+        time.sleep(5)
 
 
 def handle_keep_alive(address):
@@ -175,9 +175,9 @@ def handle_server_responses():
                                     del mismatched_fragment_order_numbers[c]
                                     c += 1
                             i = 0
-                        if received_packets_count == 19:
-                            pass
-                            # handle_keep_alive(address)
+                        if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
+
+                            handle_keep_alive(address)
                 else:
                     raise ValueError("We were expecting to get filename.")
         else:
@@ -189,5 +189,4 @@ def handle_server_responses():
         pass
 
 while True:
-    print()
     handle_server_responses()
