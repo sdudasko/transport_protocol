@@ -9,6 +9,7 @@ signals = dict(
     FRAGMENT_ACK_OK = 6,
     FRAGMENT_ACK_CRC_MISMATCH = 7,
     FILENAME = 9,
+    STDIN = 10,
     DATA_SENDING = 11, # TODO - nie je v dokumentacii, treba doplnit
 )
 # HEADER BASIC INFO - some of the properties are not used in all cases:

@@ -2,14 +2,15 @@ import socket
 import shared
 import config
 import sys
+import os
 
 BLOCK_SIZE = 5
 HEADER_SIZE = 14
 MAX_DATA_SIZE = 1500
 
-DISCONNECT_MESSAGE = "!DISCONNECT"
 SERVER = socket.gethostbyname(socket.gethostname())
 FORMAT = 'utf-8'
+nf_prefix = "bbb"
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_address = (socket.gethostname(), 1234)
@@ -44,6 +45,7 @@ def check_for_crc_match(compared_crc, data):
 
     return int.from_bytes(compared_crc, 'little') == calculated_crc
 
+input_was_stdin = False
 
 message, address = server_socket.recvfrom(MAX_DATA_SIZE)  # 1. WAITING FOR INIT MESSAGE
 
@@ -58,10 +60,12 @@ if message:
         # 2. RECEIVING NAME OF FILE AND CREATING BLANK FILE WITH CORRECT NAME
         message, address = server_socket.recvfrom(MAX_DATA_SIZE)
 
-        if message and shared.transl(message, 2, 4) == config.signals['FILENAME']:
+        if (message and shared.transl(message, 2, 4) == config.signals['FILENAME']) or (message and shared.transl(message, 2, 4) == config.signals['STDIN']):
+            if shared.transl(message, 2, 4) == config.signals['STDIN']:
+                input_was_stdin = True
 
             hl = config.header['HEADER_SIZE'] + int.from_bytes(message[4:8], 'little')
-            new_file = open("bbb" + message[(config.header['HEADER_SIZE']):hl].decode('utf-8'), 'wb')
+            new_file = open(nf_prefix + message[(config.header['HEADER_SIZE']):hl].decode('utf-8'), 'wb')
 
             # 3. RECEIVING FIRST FRAGMENT OF 1st block
             message, address = server_socket.recvfrom(MAX_DATA_SIZE)
@@ -95,7 +99,14 @@ if message:
 
                         for key, value in server_block_of_fragments.items():
                             new_file.write(value)
-                        print("Zapisovaine posledneho bloku.")
+                        print(f"Zapisovaine posledneho bloku.")
+
+                        if input_was_stdin:
+                            file_to_read = open("_tmp_stdin.txt", "r")
+                            data = file_to_read.read()
+                            print(data)
+                            os.remove(nf_prefix + "_tmp_stdin.txt")
+
                         break
 
                     message, address = server_socket.recvfrom(MAX_DATA_SIZE)

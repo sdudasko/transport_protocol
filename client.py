@@ -8,7 +8,6 @@ import math
 
 BLOCK_SIZE = 5
 HEADER_SIZE = 14
-DISCONNECT_MESSAGE = "!DISCONNECT"  # TODO - toto presunut:-)
 FORMAT = 'utf-8'
 
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -34,11 +33,11 @@ def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False, nch=
     client_socket.sendto(udp_header_arr, server_address)
 
 
-def send_filename_message(filename_arg):  # _arg because of shadowing the outer scope var name
+def send_filename_message(filename_arg, sign = 'FILENAME'):  # _arg because of shadowing the outer scope var name
 
     udp_header_arr = b''.join([
         shared.get_fragment_order(1),  # Message with filename has order number 1, but it does not matter really
-        shared.get_signal_message('FILENAME'),
+        shared.get_signal_message(sign),
         shared.get_fragment_length(filename_arg),
         shared.get_number_of_fragments(),
         shared.get_crc(b''),  # TODO - Chceme tu robit CRC ?
@@ -46,6 +45,19 @@ def send_filename_message(filename_arg):  # _arg because of shadowing the outer 
     ])
 
     client_socket.sendto(udp_header_arr, server_address)
+
+# def send_stdin(message_arg):  # _arg because of shadowing the outer scope var name
+#
+#     udp_header_arr = b''.join([
+#         shared.get_fragment_order(1),  # Message with filename has order number 1, but it does not matter really
+#         shared.get_signal_message('STDIN'),
+#         shared.get_fragment_length(message_arg),
+#         shared.get_number_of_fragments(),
+#         shared.get_crc(b''),
+#         shared.get_data(message_arg)['data']
+#     ])
+#
+#     client_socket.sendto(udp_header_arr, server_address)
 
 
 def send(msg):
@@ -69,14 +81,22 @@ def send_init():
     client_socket.sendto(udp_header_arr, server_address)
 
 # If filename is not present, handle stdin
-def handle_client_request_to_send_data(message, server, filename = ""):
+def handle_client_request_to_send_data(message, server, filename = ''):
     if message:
         # We got ack after init from server, now are "connected",
         # not really connected since UDP is connectionless but kind of.
         if shared.transl(message, 2, 4) == 2:
 
             # 2. SENDING FILENAME
-            send_filename_message(filename)
+            if filename == '':
+                message_for_stdin = "Ahoj, toto je stdin spravickasdaa."
+                new_file = open("_tmp_stdin.txt", 'wb')
+                new_file.write(message_for_stdin.encode(config.common['FORMAT']))
+                new_file.close()
+                send_filename_message('_tmp_stdin.txt', 'STDIN')
+                filename = '_tmp_stdin.txt'
+            else:
+                send_filename_message(filename)
 
             max_addressing_size_without_header = shared.get_max_addressing_size_without_header()
 
