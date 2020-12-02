@@ -89,7 +89,7 @@ def handle_client_request_to_send_data(message, server, filename = ''):
 
             # 2. SENDING FILENAME
             if filename == '':
-                message_for_stdin = "Ahoj, toto je stdin spravickasdaa."
+                message_for_stdin = "Ahoj, toto je stdin spravicka(-:."
                 new_file = open("_tmp_stdin.txt", 'wb')
                 new_file.write(message_for_stdin.encode(config.common['FORMAT']))
                 new_file.close()
@@ -206,4 +206,4 @@ while True:
     send_init()  # We sent init message, now we listen for message from ACK from server
     message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
 
-    handle_client_request_to_send_data(message, server)
+    handle_client_request_to_send_data(message, server, 'adad.png')
