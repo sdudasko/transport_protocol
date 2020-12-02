@@ -6,8 +6,10 @@ def get_max_size_of_receiving_packet():  # TODO - toto si musi vediet uzivatel n
     return 1500
 
 
-def get_max_size_of_receiving_packet_without_header():  # TODO - toto si musi vediet uzivatel navolit, zatial dajme max, co moze byt
-    return 1456
+def get_max_addressing_size_without_header(chosen_by_user = 0):  # TODO - toto si musi vediet uzivatel navolit, zatial dajme max, co moze byt
+    if chosen_by_user == 0:
+        return config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER']
+    return chosen_by_user
 
 
 def get_fragment_order(order):

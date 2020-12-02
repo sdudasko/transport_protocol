@@ -76,7 +76,7 @@ if message:
 
                 if not check_for_crc_match(message[10:14], message[14:]):
                     mismatched_fragment_order_numbers.append(int.from_bytes(message[0:2], 'little'))
-                    print("########################### CRC MISMATCH! ###########################")
+                    print(f"################## CRC MISMATCH vo fragmente {order_n} ! ##################")
 
                 server_block_of_fragments[order_n] = message[(config.header['HEADER_SIZE']):]
 
@@ -94,8 +94,8 @@ if message:
                             c += 1
 
                         for key, value in server_block_of_fragments.items():
-                            print(f"BKey: {key} {received_packets_count}")
                             new_file.write(value)
+                        print("Zapisovaine posledneho bloku.")
                         break
 
                     message, address = server_socket.recvfrom(MAX_DATA_SIZE)
@@ -106,20 +106,17 @@ if message:
 
                     if not check_for_crc_match(message[10:14], message[14:]):  # TODO - send wrong ack
                         mismatched_fragment_order_numbers.append(int.from_bytes(message[0:2], 'little'))
-                        # print("########################### CRC MISMATCH! ###########################")
+                        print(f"################## CRC MISMATCH vo fragmente {order_n} ! ##################")
 
                     i += 1
 
                     if i == BLOCK_SIZE:
                         if len(mismatched_fragment_order_numbers) == 0:
 
-                            print(len(server_block_of_fragments.items()))
                             send_ack(address, 'FRAGMENT_ACK_OK')
 
                             for key, value in server_block_of_fragments.items():
-                                print(f"FKey: {key} {received_packets_count}")
                                 new_file.write(value)
-
                             server_block_of_fragments.clear() # Some garbage collection
                         else:  # We have some data that did not pass CRC test so send information about that
                             c = 0
@@ -131,13 +128,6 @@ if message:
                                 del mismatched_fragment_order_numbers[c]
                                 c += 1
                         i = 0
-
-                    # if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
-                    #     print(int.from_bytes(message[8:10], 'little'))
-                    #     print(received_packets_count)
-                    #     for key, value in server_block_of_fragments.items():
-                    #         new_file.write(value)
-                    #     break
 
             else:
                 raise ValueError("We were expecting to get filename.")

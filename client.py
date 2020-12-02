@@ -69,6 +69,7 @@ def send_init():
     client_socket.sendto(udp_header_arr, server_address)
 
 
+
 while True:
 
     # 1. FIRST WE SEND INIT MESSAGE TO THE SERVER SO WE WANT TO INITIALIZE A CONNECTION
@@ -81,14 +82,16 @@ while True:
         if int.from_bytes(message[2:4], 'little') == 2:
 
             # 2. SENDING FILENAME
-            filename = "test.txt"
+            filename = "adad.png"
             send_filename_message(filename)
+
+            max_addressing_size_without_header = shared.get_max_addressing_size_without_header(100)
 
             with open(filename, 'rb') as file:
 
-                bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
+                bytes_to_send = file.read(max_addressing_size_without_header)
                 total_fragments = math.ceil(
-                    os.stat(filename).st_size / config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
+                    os.stat(filename).st_size / max_addressing_size_without_header)
                 client_block_of_fragments = {}
 
                 i = 1
@@ -101,7 +104,6 @@ while True:
                     if i == 1 and not z:
                         send_piece_of_data(bytes_to_send, i, False, nch=total_fragments)
                         client_block_of_fragments[i] = bytes_to_send
-                        # client_block_of_fragments.append(bytes_to_send)
                         i += 1
                         z = True
                     # ------------------
@@ -127,8 +129,9 @@ while True:
 
                                 del tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment]
 
-                    bytes_to_send = file.read(config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'])
+                    bytes_to_send = file.read(max_addressing_size_without_header)
 
+                    # Simulation of CRC mismatch on 3. fragment
                     if k == False and i == 3:
                         send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=total_fragments, mismatch_simulation=True)
                         k =True
@@ -138,7 +141,6 @@ while True:
 
                     # Storing these data here just for backup, then we will overwrite those, we could probably
                     # solve it even without this helper variable with some seek func.
-                    # client_block_of_fragments.append(bytes_to_send)
                     client_block_of_fragments[i + n * BLOCK_SIZE] = bytes_to_send
                     i += 1
 
@@ -158,18 +160,18 @@ while True:
                             order_of_first_crc_mismatched_fragment = int.from_bytes(message[0:2], 'little')
 
                             tmp_client_block_of_fragments = client_block_of_fragments
-                            client_block_of_fragments = {}  # TODO - does this work? Check if it does not del the ref
+                            client_block_of_fragments = {}
 
                             send_piece_of_data(tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment],
                                                order_of_first_crc_mismatched_fragment, nch=total_fragments)
 
-                            # client_block_of_fragments.append(tmp_client_block_of_fragments[0])
                             client_block_of_fragments[i + n * BLOCK_SIZE] = tmp_client_block_of_fragments[
                                 order_of_first_crc_mismatched_fragment]
                             i += 1
 
                             del tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment]
 
+                            # TODO - more errors in single block
                             # -1 bcs we have already received one so this will run only if more than one crc mismatch.
                             for fragment_with_crc_mismatch in range(int.from_bytes(message[8:10], 'little')): # TODO
                                 pass
@@ -179,3 +181,7 @@ while True:
 
                         i = 1
                         n += 1
+
+            # File is all read
+            print("Hello:)")
+        print(message)
