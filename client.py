@@ -117,6 +117,7 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                 n = 0
                 z = False
                 k = False
+                total_mismatchs = 0
                 while bytes_to_send != b'':
 
                     # Refactor that, not needed anymore in this state
@@ -172,7 +173,9 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                     # We sent BLOCK_SIZE number of fragments, now we wait for reply from server.
                     # If we got everything right we get ack with permission to send next block of data.
                     # If there was an error, we get n msgs where every msg tells in ORDER which fragment was corrupted.
-                    if (i - 1) == BLOCK_SIZE:
+                    print(f"STATE: {i} {total_mismatchs}")
+                    if (i + total_mismatchs - 1) == BLOCK_SIZE:
+                        total_mismatchs = 0
 
                         message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
 
@@ -192,7 +195,9 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
 
                             client_block_of_fragments[i + n * BLOCK_SIZE] = tmp_client_block_of_fragments[
                                 order_of_first_crc_mismatched_fragment]
-                            i += 1
+
+                            # i += 1
+                            total_mismatchs += 1
 
                             del tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment]
 
