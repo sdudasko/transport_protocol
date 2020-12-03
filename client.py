@@ -245,6 +245,7 @@ while True:
 
         send_init()  # We sent init message, now we listen for message from ACK from server
         message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+        print(message)
         connection_acquired = True
 
     sending_file_msg = 'Chces posielat subor?'

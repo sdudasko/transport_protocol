@@ -89,10 +89,10 @@ def handle_server_responses():
         received_packets_count = 0
         total_crc_mismatched = 0
 
-        # If the message we got is initialization message
-        if shared.transl(message, 2, 4) == config.signals['CONNECTION_CLOSE_REQUEST']:
-            send_ack(address, 'CONNECTION_CLOSE_ACK')
-            connection_acquired = False
+        # # If the message we got is initialization message
+        # if shared.transl(message, 2, 4) == config.signals['CONNECTION_CLOSE_REQUEST']:
+        #     send_ack(address, 'CONNECTION_CLOSE_ACK')
+        #     connection_acquired = False
 
         if (shared.transl(message, 2, 4) == config.signals['CONNECTION_INITIALIZATION']) or connection_acquired:
 
@@ -189,7 +189,6 @@ def handle_server_responses():
                             i = 0
                         if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
                             print("Skonceny cyklus")
-                            pass
                             # handle_keep_alive(address)
                     if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
                         pass
@@ -204,4 +203,3 @@ def handle_server_responses():
 
 while True:
     handle_server_responses()
-    print("Cakanie")
