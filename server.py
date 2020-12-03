@@ -24,6 +24,7 @@ received_packets_count = 0
 total_crc_mismatched = 0
 connection_acquired = False
 
+
 def send(msg, address):
     message = msg.encode(FORMAT).strip()
     server_socket.sendto(message, address)
@@ -41,11 +42,11 @@ def send_keepalive(address):
         ])
         print("Sending keep alive.")
         server_socket.sendto(udp_header_arr, address)
-        print("Waiting for ACK")
-        message, address = server_socket.recvfrom(MAX_DATA_SIZE)
-        print(message)
 
         time.sleep(5)
+
+        # message, address = server_socket.recvfrom(MAX_DATA_SIZE)
+        # print(message)
 
 
 def handle_keep_alive(address):
@@ -67,16 +68,16 @@ def send_ack(address, sign='ACKNOWLEDGEMENT', fragment_order=0, number_of_fragme
 
 
 def check_for_crc_match(compared_crc, data):
-
     calculated_crc = shared.calculate_crc(data)
     calculated_crc = int(calculated_crc[2:], 16)
 
     return int.from_bytes(compared_crc, 'little') == calculated_crc
 
-
+address = ""
 def handle_server_responses():
-    message, address = server_socket.recvfrom(MAX_DATA_SIZE)  # 1. WAITING FOR INIT MESSAGE
 
+    global address
+    message, address = server_socket.recvfrom(MAX_DATA_SIZE)  # 1. WAITING FOR INIT MESSAGE
     input_was_stdin = False
     global connection_acquired
 
@@ -89,10 +90,6 @@ def handle_server_responses():
         received_packets_count = 0
         total_crc_mismatched = 0
 
-        # # If the message we got is initialization message
-        # if shared.transl(message, 2, 4) == config.signals['CONNECTION_CLOSE_REQUEST']:
-        #     send_ack(address, 'CONNECTION_CLOSE_ACK')
-        #     connection_acquired = False
 
         if (shared.transl(message, 2, 4) == config.signals['CONNECTION_INITIALIZATION']) or connection_acquired:
 
@@ -130,6 +127,7 @@ def handle_server_responses():
                     server_block_of_fragments[order_n] = message[(config.header['HEADER_SIZE']):]
 
                     while True:
+                        print("sth")
 
                         if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
                             c = 0
@@ -145,7 +143,7 @@ def handle_server_responses():
                             for key, value in server_block_of_fragments.items():
                                 new_file.write(value)
                             send_ack(address, 'FRAGMENT_ACK_OK')
-                            print(f"Zapisovaine posledneho bloku. {total_crc_mismatched}")
+                            # print(f"Zapisovaine posledneho bloku. {total_crc_mismatched}")
                             # print(received_packets_count)
                             # handle_keep_alive(address)
 
@@ -168,8 +166,9 @@ def handle_server_responses():
                             print(f"################## CRC MISMATCH vo fragmente {order_n} ! ##################")
 
                         i += 1
-
+                        print("Need to be therer")
                         if i == BLOCK_SIZE:
+
                             if len(mismatched_fragment_order_numbers) == 0:
 
                                 send_ack(address, 'FRAGMENT_ACK_OK')
@@ -177,6 +176,7 @@ def handle_server_responses():
                                 for key, value in server_block_of_fragments.items():
                                     new_file.write(value)
                                 server_block_of_fragments.clear()  # Some garbage collection
+
                             else:  # We have some data that did not pass CRC test so send information about that
                                 c = 0
 
@@ -188,18 +188,19 @@ def handle_server_responses():
                                     c += 1
                             i = 0
                         if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
-                            print("Skonceny cyklus")
-                            # handle_keep_alive(address)
+                            # print("Skonceny cyklus")
+                            return
                     if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
-                        pass
+                        return
                 else:
                     raise ValueError("We were expecting to get filename.")
-
-
 
 
     else:
         pass
 
+
 while True:
     handle_server_responses()
+    print("toto sa skoncilo")
+    handle_keep_alive(address)

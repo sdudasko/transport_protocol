@@ -6,6 +6,7 @@ import config
 import shared
 import readline
 import time
+import threading
 
 
 BLOCK_SIZE = 5
@@ -82,9 +83,12 @@ def send_keep_alive_ack():
 
 
 def listen_for_keep_alive():
-    message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
-    send_keep_alive_ack()
-    print(message)
+    while True:
+        ms, srv = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+        if shared.transl(ms, 2, 4) == config.signals['KEEP_ALIVE']:
+            print("Prislo ACK-cko zo servera")
+            send_keep_alive_ack()
+        time.sleep(6)
 
 
 def handle_client_request_to_send_data(message, server, filename='', already_connected=False, message_for_stdin=''):
@@ -173,7 +177,7 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                     # We sent BLOCK_SIZE number of fragments, now we wait for reply from server.
                     # If we got everything right we get ack with permission to send next block of data.
                     # If there was an error, we get n msgs where every msg tells in ORDER which fragment was corrupted.
-                    print(f"STATE: {i} {total_mismatchs}")
+
                     if (i + total_mismatchs - 1) == BLOCK_SIZE:
                         total_mismatchs = 0
 
@@ -206,9 +210,12 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                             for fragment_with_crc_mismatch in range(shared.transl(message, 8, 10)):  # TODO
                                 pass
 
-                        else:
-                            if not shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE']:
-                                raise ValueError("We got nor OK ACK or CRC MISMATCH.")
+                        elif shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE']:
+                            pass
+                            # while shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_OK']:
+                            #     print("Semka :)")
+                            #     print(message)
+
 
                         i = 1
                         n += 1
@@ -232,6 +239,8 @@ def client_prompt_port(prompt, prefill='1234'):
     finally:
         readline.set_startup_hook()
 
+
+started_waiting_for_ack = False
 while True:
     # 1. FIRST WE SEND INIT MESSAGE TO THE SERVER SO WE WANT TO INITIALIZE A CONNECTION
 
@@ -260,6 +269,12 @@ while True:
         _stdin = input("")
         handle_client_request_to_send_data(message, server, message_for_stdin=_stdin)
 
+    if not started_waiting_for_ack:
+        started_waiting_for_ack = True
+        print("tru")
+        t1 = threading.Thread(target=listen_for_keep_alive)
+        t1.start()
+
     msg = 'Chces ukoncit spojenie?'
     end_connection = input("%s (y/N) " % msg).lower() == 'y'
 
@@ -274,5 +289,5 @@ while True:
             if shared.transl(message, 2, 4) == config.signals['CONNECTION_CLOSE_ACK']:
                 connection_acquired = False
                 break
-    # time.sleep(5)
-    # listen_for_keep_alive()
+
+
