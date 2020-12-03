@@ -7,6 +7,7 @@ import shared
 import readline
 import time
 
+
 BLOCK_SIZE = 5
 HEADER_SIZE = 14
 FORMAT = 'utf-8'
@@ -57,10 +58,10 @@ def send(msg):
     client_socket.sendto(_message, server_address)
 
 
-def send_init():
+def send_init(sign = 'CONNECTION_INITIALIZATION'):
     udp_header_arr = b''.join([
         shared.get_fragment_order(0),
-        shared.get_signal_message('CONNECTION_INITIALIZATION'),
+        shared.get_signal_message(sign),
         shared.get_fragment_length(b''),
         shared.get_number_of_fragments(),
         shared.get_crc(b'')
@@ -86,7 +87,7 @@ def listen_for_keep_alive():
     print(message)
 
 
-def handle_client_request_to_send_data(message, server, filename='', already_connected=False):
+def handle_client_request_to_send_data(message, server, filename='', already_connected=False, message_for_stdin=''):
 
     if message:
         # We got ack after init from server, now are "connected",
@@ -95,7 +96,6 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
 
             # 2. SENDING FILENAME
             if filename == '':
-                message_for_stdin = "Ahoj, toto je stdin spravicka(-:."
                 new_file = open("_tmp_stdin.txt", 'wb')
                 new_file.write(message_for_stdin.encode(config.common['FORMAT']))
                 new_file.close()
@@ -118,9 +118,10 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                 z = False
                 k = False
                 while bytes_to_send != b'':
+
                     # Refactor that, not needed anymore in this state
                     # ------------------
-                    if i == 1 and not z:
+                    if i == 1 and not z: # Ak chces zasielat v 1. packete simulaciu tak treba tak sem True
                         send_piece_of_data(bytes_to_send, i, False, nch=total_fragments)
                         client_block_of_fragments[i] = bytes_to_send
                         i += 1
@@ -128,8 +129,10 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                     # ------------------
 
                     if total_fragments < BLOCK_SIZE:
+                        print(f"Was last")
 
                         if (i - 1) == total_fragments:
+                            print(f"Be: {(i - 1)} {total_fragments}")
                             message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
 
                             if shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_CRC_MISMATCH']:
@@ -148,7 +151,9 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
 
                                 del tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment]
 
+
                     bytes_to_send = file.read(max_addressing_size_without_header)
+
 
                     # Simulation of CRC mismatch on 3. fragment
                     if k == False and i == 3:
@@ -197,7 +202,8 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                                 pass
 
                         else:
-                            raise ValueError("We got nor OK ACK or CRC MISMATCH.")
+                            if not shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE']:
+                                raise ValueError("We got nor OK ACK or CRC MISMATCH.")
 
                         i = 1
                         n += 1
@@ -230,15 +236,37 @@ while True:
         print("Zadaj adresu cieloveho portu: ")
         server_port = client_prompt_port("")
 
-        server_address = (socket.gethostname(), int(server_port))
+        server_address = (server_ip_address, int(server_port))
 
         send_init()  # We sent init message, now we listen for message from ACK from server
+        message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+        connection_acquired = True
 
-    message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
-    connection_acquired = True
-    handle_client_request_to_send_data(message, server, 'adad.png')
+    sending_file_msg = 'Chces posielat subor?'
+    sending_file = input("%s (y/N) " % sending_file_msg).lower() == 'y'
 
-    # handle_client_request_to_send_data(message, server, '04_proc.pdf', already_connected=True)
+    if sending_file:
+        print("Zadaj cestu ku suboru:")
+        filename = input("")
+        handle_client_request_to_send_data(message, server, filename=filename)
+    else:
+        print("Zadaj spravu: ")
+        _stdin = input("")
+        handle_client_request_to_send_data(message, server, message_for_stdin=_stdin)
 
-    time.sleep(5)
-    listen_for_keep_alive()
+    msg = 'Chces ukoncit spojenie?'
+    end_connection = input("%s (y/N) " % msg).lower() == 'y'
+
+    if not end_connection:
+        pass
+    else:
+        print("Ending connection")
+        send_init('CONNECTION_CLOSE_REQUEST') #taka recyklacia, asi premenovat func
+
+        while True:
+            message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+            if shared.transl(message, 2, 4) == config.signals['CONNECTION_CLOSE_ACK']:
+                connection_acquired = False
+                break
+    # time.sleep(5)
+    # listen_for_keep_alive()

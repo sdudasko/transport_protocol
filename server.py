@@ -10,12 +10,12 @@ BLOCK_SIZE = 5
 HEADER_SIZE = 14
 MAX_DATA_SIZE = 1500
 
-SERVER = socket.gethostbyname(socket.gethostname())
+SERVER = "127.0.0.1"
 FORMAT = 'utf-8'
 nf_prefix = "bbb"
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server_address = (socket.gethostname(), 1234)
+server_address = (SERVER, 1234)
 
 server_socket.bind(server_address)
 print(f"[LISTENING] Server is listening on {SERVER}")
@@ -67,6 +67,7 @@ def send_ack(address, sign='ACKNOWLEDGEMENT', fragment_order=0, number_of_fragme
 
 
 def check_for_crc_match(compared_crc, data):
+
     calculated_crc = shared.calculate_crc(data)
     calculated_crc = int(calculated_crc[2:], 16)
 
@@ -75,14 +76,24 @@ def check_for_crc_match(compared_crc, data):
 
 def handle_server_responses():
     message, address = server_socket.recvfrom(MAX_DATA_SIZE)  # 1. WAITING FOR INIT MESSAGE
+
     input_was_stdin = False
     global connection_acquired
+
+    if shared.transl(message, 2, 4) == config.signals['CONNECTION_CLOSE_REQUEST']:
+        send_ack(address, 'CONNECTION_CLOSE_ACK')
+        connection_acquired = False
+
     if message:
         i = 0
         received_packets_count = 0
         total_crc_mismatched = 0
 
         # If the message we got is initialization message
+        if shared.transl(message, 2, 4) == config.signals['CONNECTION_CLOSE_REQUEST']:
+            send_ack(address, 'CONNECTION_CLOSE_ACK')
+            connection_acquired = False
+
         if (shared.transl(message, 2, 4) == config.signals['CONNECTION_INITIALIZATION']) or connection_acquired:
 
             if not connection_acquired:
@@ -133,7 +144,8 @@ def handle_server_responses():
 
                             for key, value in server_block_of_fragments.items():
                                 new_file.write(value)
-                            print(f"Zapisovaine posledneho bloku.")
+                            send_ack(address, 'FRAGMENT_ACK_OK')
+                            print(f"Zapisovaine posledneho bloku. {total_crc_mismatched}")
                             # print(received_packets_count)
                             # handle_keep_alive(address)
 
@@ -176,12 +188,14 @@ def handle_server_responses():
                                     c += 1
                             i = 0
                         if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
-
-                            handle_keep_alive(address)
+                            print("Skonceny cyklus")
+                            pass
+                            # handle_keep_alive(address)
+                    if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
+                        pass
                 else:
                     raise ValueError("We were expecting to get filename.")
-        else:
-            raise ValueError("We were expecting to get init message.")
+
 
 
 
@@ -190,3 +204,4 @@ def handle_server_responses():
 
 while True:
     handle_server_responses()
+    print("Cakanie")
