@@ -17,7 +17,7 @@ client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 client_address = (socket.gethostname(), 1235)
 
 connection_acquired = False
-
+started_waiting_for_ack = False
 
 def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False, nch=0):
     correct_data_crc = False
@@ -77,18 +77,19 @@ def send_keep_alive_ack():
         shared.get_fragment_length(b''),
         shared.get_number_of_fragments(),
         shared.get_crc(b'')
-
     ])
+    print("poselam kaa")
     client_socket.sendto(udp_header_arr, server_address)
 
 
 def listen_for_keep_alive():
-    while True:
-        ms, srv = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
-        if shared.transl(ms, 2, 4) == config.signals['KEEP_ALIVE']:
-            print("Prislo ACK-cko zo servera")
-            send_keep_alive_ack()
-        time.sleep(6)
+    # while True:
+    threading.Timer(5.0, listen_for_keep_alive).start()
+
+    ms, srv = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+    if shared.transl(ms, 2, 4) == config.signals['KEEP_ALIVE']:
+        print("Prislo ACK-cko zo servera. Potvrdzujem.")
+        send_keep_alive_ack()
 
 
 def handle_client_request_to_send_data(message, server, filename='', already_connected=False, message_for_stdin=''):
@@ -211,15 +212,16 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                                 pass
 
                         elif shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE']:
-                            pass
-                            # while shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_OK']:
-                            #     print("Semka :)")
-                            #     print(message)
+                            while shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE']:
+                                if shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_OK']:
+                                    print("Semka :)")
+                                    print(message)
 
 
                         i = 1
                         n += 1
-
+            global started_waiting_for_ack
+            # started_waiting_for_ack = False
             # File is all read
 
         # listen_for_keep_alive()
@@ -240,7 +242,6 @@ def client_prompt_port(prompt, prefill='1234'):
         readline.set_startup_hook()
 
 
-started_waiting_for_ack = False
 while True:
     # 1. FIRST WE SEND INIT MESSAGE TO THE SERVER SO WE WANT TO INITIALIZE A CONNECTION
 
@@ -271,9 +272,9 @@ while True:
 
     if not started_waiting_for_ack:
         started_waiting_for_ack = True
-        print("tru")
         t1 = threading.Thread(target=listen_for_keep_alive)
         t1.start()
+        t1.join()
 
     msg = 'Chces ukoncit spojenie?'
     end_connection = input("%s (y/N) " % msg).lower() == 'y'

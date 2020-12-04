@@ -23,36 +23,39 @@ print(f"[LISTENING] Server is listening on {SERVER}")
 received_packets_count = 0
 total_crc_mismatched = 0
 connection_acquired = False
-
+started_waiting_for_ack = False
+address = ""
 
 def send(msg, address):
     message = msg.encode(FORMAT).strip()
     server_socket.sendto(message, address)
 
 
-def send_keepalive(address):
-    while True:
-        udp_header_arr = b''.join([
-            shared.get_fragment_order(0),
-            shared.get_signal_message('KEEP_ALIVE'),
-            shared.get_fragment_length(b''),
-            shared.get_number_of_fragments(),
-            shared.get_crc(b''),
-            shared.get_data(b'')['data']
-        ])
-        print("Sending keep alive.")
-        server_socket.sendto(udp_header_arr, address)
+def send_keepalive():
+    global address
+    threading.Timer(5.0, send_keepalive).start()
+    # while True:
+    udp_header_arr = b''.join([
+        shared.get_fragment_order(0),
+        shared.get_signal_message('KEEP_ALIVE'),
+        shared.get_fragment_length(b''),
+        shared.get_number_of_fragments(),
+        shared.get_crc(b''),
+        shared.get_data(b'')['data']
+    ])
 
-        time.sleep(5)
-
-        # message, address = server_socket.recvfrom(MAX_DATA_SIZE)
-        # print(message)
-
-
-def handle_keep_alive(address):
-    t1 = threading.Thread(target=send_keepalive(address))
-    t1.start()
-    # connection_acquired = False
+    server_socket.sendto(udp_header_arr, address)
+    print("toto doslo z klienta.")
+    message, address = server_socket.recvfrom(MAX_DATA_SIZE)
+    if shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE_ACK']:
+        print("Asi ok")
+    # while True:
+    #     message, address = server_socket.recvfrom(MAX_DATA_SIZE)
+    #     if shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE_ACK']:
+    #         print("parada")
+    #         print(message)
+    #         break
+    # break
 
 
 def send_ack(address, sign='ACKNOWLEDGEMENT', fragment_order=0, number_of_fragments=0):
@@ -73,9 +76,8 @@ def check_for_crc_match(compared_crc, data):
 
     return int.from_bytes(compared_crc, 'little') == calculated_crc
 
-address = ""
-def handle_server_responses():
 
+def handle_server_responses():
     global address
     message, address = server_socket.recvfrom(MAX_DATA_SIZE)  # 1. WAITING FOR INIT MESSAGE
     input_was_stdin = False
@@ -127,7 +129,6 @@ def handle_server_responses():
                     server_block_of_fragments[order_n] = message[(config.header['HEADER_SIZE']):]
 
                     while True:
-                        print("sth")
 
                         if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
                             c = 0
@@ -150,7 +151,6 @@ def handle_server_responses():
                             if input_was_stdin:
                                 file_to_read = open("_tmp_stdin.txt", "r")
                                 data = file_to_read.read()
-                                print(data)
                                 os.remove(nf_prefix + "_tmp_stdin.txt")
 
                             break
@@ -188,10 +188,15 @@ def handle_server_responses():
                                     c += 1
                             i = 0
                         if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
+                            global started_waiting_for_ack
+                            # started_waiting_for_ack = False
+                            pass
                             # print("Skonceny cyklus")
-                            return
+                            # return
                     if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
-                        return
+                        print("sem")
+                        pass
+                        # return
                 else:
                     raise ValueError("We were expecting to get filename.")
 
@@ -201,6 +206,11 @@ def handle_server_responses():
 
 
 while True:
+
     handle_server_responses()
-    print("toto sa skoncilo")
-    handle_keep_alive(address)
+
+    if not started_waiting_for_ack:
+        started_waiting_for_ack = True
+        t1 = threading.Thread(target=send_keepalive())
+        t1.start()
+        t1.join()
