@@ -202,44 +202,44 @@ def handle_server_responses():
         pass
 
 
-def setup_server():
+def setup_server(port_number):
     global server_socket
     global server_address
 
     SERVER = "127.0.0.1"
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    server_address = (SERVER, 1238)
+    server_address = (SERVER, port_number)
 
     server_socket.bind(server_address)
-    print(f"[LISTENING] Server is listening on {SERVER}")
+    print(f"[LISTENING] Server is listening on {SERVER}:{port_number}")
 
 refresh_socket = False
-switch_sides_toggle = True
 
-def server_behaviour():
+def server_close():
+    global server_socket
+    global server_address
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    server_socket.close()
+    # server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # server_address = ("127.0.0.1", 1239)
+    # server_socket.bind(server_address)
+
+def server_behaviour(port_number = 1236):
     global started_waiting_for_ack
     global server_socket
     global switch_sides_toggle
-    setup_server()
+    setup_server(port_number)
 
     while True:
-        # switch_msg = 'Chces vymenit komunikujuce strany?'
-        # switch_sides = input("%s (y/N) " % switch_msg).lower() == 'y'
-        # server_behaviour()
-        # if switch_sides:
-        if switch_sides_toggle:
-            switch_sides_toggle = False
-            server_socket.close()
-            server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            server_address = ("127.0.0.1", 1234)
-            server_socket.bind(server_address)
 
-        handle_server_responses()
+        try:
+            handle_server_responses()
 
-        failed_to_ack_keep_alive = False
-
-        if not started_waiting_for_ack:
-            started_waiting_for_ack = True
-            t1 = threading.Thread(target=send_keepalive())
-            t1.start()
-            t1.join()
+            # if not started_waiting_for_ack:
+            #     started_waiting_for_ack = True
+            #     t1 = threading.Thread(target=send_keepalive())
+            #     t1.start()
+            #     t1.join()
+        except:
+            return

@@ -250,26 +250,32 @@ def client_prompt_port(prompt, prefill='1234'):
 
 switch_sides_toggle = True
 
-def setup_client():
+def setup_client(port_number):
     global client_socket
     global client_address
 
+    print(f"[LISTENING] Client is communicating on {client_address}:{port_number}")
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    client_address = (socket.gethostname(), 1235)
+    client_address = (socket.gethostname(), port_number)
 
-def client_behaviour():
+
+def client_close():
+    global client_socket
+    global client_address
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    client_socket.close()
+
+def client_behaviour(port_number = 1234):
     global started_waiting_for_ack
     global failed_to_ack_keep_alive
     global connection_acquired
     global server_address
 
-    setup_client()
+    setup_client(port_number)
 
     while True:
         # 1. FIRST WE SEND INIT MESSAGE TO THE SERVER SO WE WANT TO INITIALIZE A CONNECTION
-
-        if failed_to_ack_keep_alive:
-            break
 
         if not connection_acquired:
             print("Zadaj cielovu IP adresu: ")
@@ -300,15 +306,20 @@ def client_behaviour():
             _stdin = input("")
             handle_client_request_to_send_data(message, server, message_for_stdin=_stdin)
 
-        if not started_waiting_for_ack:
-            started_waiting_for_ack = True
-            t1 = threading.Thread(target=listen_for_keep_alive)
-            t1.start()
-            t1.join()
+        # if not started_waiting_for_ack:
+        #     started_waiting_for_ack = True
+        #     t1 = threading.Thread(target=listen_for_keep_alive)
+        #     t1.start()
+        #     t1.join()
 
         msg = 'Chces ukoncit spojenie?'
         end_connection = input("%s (y/N) " % msg).lower() == 'y'
 
+        msg = 'Chces vymenit strany?'
+        switch_s = input("%s (y/N) " % msg).lower() == 'y'
+
+        if switch_s:
+            return
         if not end_connection:
             pass
         else:
