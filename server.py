@@ -1,24 +1,17 @@
-import socket
-import shared
-import config
-import sys
 import os
+import socket
 import threading
 import time
+
+import config
+import shared
 
 BLOCK_SIZE = 5
 HEADER_SIZE = 14
 MAX_DATA_SIZE = 1500
 
-SERVER = "127.0.0.1"
 FORMAT = 'utf-8'
 nf_prefix = "bbb"
-
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server_address = (SERVER, 1234)
-
-server_socket.bind(server_address)
-print(f"[LISTENING] Server is listening on {SERVER}")
 
 received_packets_count = 0
 total_crc_mismatched = 0
@@ -26,10 +19,7 @@ connection_acquired = False
 started_waiting_for_ack = False
 address = ""
 
-
-def send(msg, address):
-    message = msg.encode(FORMAT).strip()
-    server_socket.sendto(message, address)
+server_socket = ""
 
 
 failed_to_ack_keep_alive = False
@@ -59,7 +49,6 @@ def send_keepalive():
         failed_to_ack_keep_alive = True
         last_ack = time.time()
         send_ack(address, 'CONNECTION_CLOSE_ACK')
-        os._exit(1)
 
     else:
         server_socket.sendto(udp_header_arr, address)
@@ -213,16 +202,44 @@ def handle_server_responses():
         pass
 
 
+def setup_server():
+    global server_socket
+    global server_address
+
+    SERVER = "127.0.0.1"
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server_address = (SERVER, 1238)
+
+    server_socket.bind(server_address)
+    print(f"[LISTENING] Server is listening on {SERVER}")
+
 refresh_socket = False
-while True:
+switch_sides_toggle = True
 
-    handle_server_responses()
+def server_behaviour():
+    global started_waiting_for_ack
+    global server_socket
+    global switch_sides_toggle
+    setup_server()
 
-    failed_to_ack_keep_alive = False
+    while True:
+        # switch_msg = 'Chces vymenit komunikujuce strany?'
+        # switch_sides = input("%s (y/N) " % switch_msg).lower() == 'y'
+        # server_behaviour()
+        # if switch_sides:
+        if switch_sides_toggle:
+            switch_sides_toggle = False
+            server_socket.close()
+            server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            server_address = ("127.0.0.1", 1234)
+            server_socket.bind(server_address)
 
-    if not started_waiting_for_ack:
-        started_waiting_for_ack = True
-        t1 = threading.Thread(target=send_keepalive())
-        t1.start()
-        t1.join()
+        handle_server_responses()
 
+        failed_to_ack_keep_alive = False
+
+        if not started_waiting_for_ack:
+            started_waiting_for_ack = True
+            t1 = threading.Thread(target=send_keepalive())
+            t1.start()
+            t1.join()

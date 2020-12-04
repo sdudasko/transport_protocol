@@ -13,11 +13,12 @@ BLOCK_SIZE = 5
 HEADER_SIZE = 14
 FORMAT = 'utf-8'
 
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-client_address = (socket.gethostname(), 1235)
-
 connection_acquired = False
 started_waiting_for_ack = False
+
+client_socket = ""
+client_address = ""
+server_address = ""
 
 def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False, nch=0):
     correct_data_crc = False
@@ -247,56 +248,85 @@ def client_prompt_port(prompt, prefill='1234'):
     finally:
         readline.set_startup_hook()
 
+switch_sides_toggle = True
 
-while True:
-    # 1. FIRST WE SEND INIT MESSAGE TO THE SERVER SO WE WANT TO INITIALIZE A CONNECTION
-    if failed_to_ack_keep_alive:
-        break
+def setup_client():
+    global client_socket
+    global client_address
 
-    if not connection_acquired:
-        print("Zadaj cielovu IP adresu: ")
-        server_ip_address = client_prompt_ip("")
-        print("Zadaj adresu cieloveho portu: ")
-        server_port = client_prompt_port("")
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client_address = (socket.gethostname(), 1235)
 
-        server_address = (server_ip_address, int(server_port))
+def client_behaviour():
+    global started_waiting_for_ack
+    global failed_to_ack_keep_alive
+    global connection_acquired
+    global server_address
 
-        send_init()  # We sent init message, now we listen for message from ACK from server
-        message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
-        connection_acquired = True
-        failed_to_ack_keep_alive = False
+    setup_client()
 
-    sending_file_msg = 'Chces posielat subor?'
-    sending_file = input("%s (y/N) " % sending_file_msg).lower() == 'y'
+    while True:
+        # 1. FIRST WE SEND INIT MESSAGE TO THE SERVER SO WE WANT TO INITIALIZE A CONNECTION
 
-    if sending_file:
-        print("Zadaj cestu ku suboru:")
-        filename = input("")
-        handle_client_request_to_send_data(message, server, filename=filename)
-    else:
-        print("Zadaj spravu: ")
-        _stdin = input("")
-        handle_client_request_to_send_data(message, server, message_for_stdin=_stdin)
+        if failed_to_ack_keep_alive:
+            break
 
-    if not started_waiting_for_ack:
-        started_waiting_for_ack = True
-        t1 = threading.Thread(target=listen_for_keep_alive)
-        t1.start()
-        t1.join()
+        if not connection_acquired:
+            print("Zadaj cielovu IP adresu: ")
+            server_ip_address = client_prompt_ip("")
+            print("Zadaj adresu cieloveho portu: ")
+            server_port = client_prompt_port("")
 
-    msg = 'Chces ukoncit spojenie?'
-    end_connection = input("%s (y/N) " % msg).lower() == 'y'
+            server_address = (server_ip_address, int(server_port))
 
-    if not end_connection:
-        pass
-    else:
-        print("Ending connection")
-        send_init('CONNECTION_CLOSE_REQUEST') #taka recyklacia, asi premenovat func
-
-        while True:
+            send_init()  # We sent init message, now we listen for message from ACK from server
             message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
-            if shared.transl(message, 2, 4) == config.signals['CONNECTION_CLOSE_ACK']:
-                connection_acquired = False
-                break
+            connection_acquired = True
+            failed_to_ack_keep_alive = False
 
+        # switch_msg = 'Chces vymenit komunikujuce strany?'
+        # switch_sides = input("%s (y/N) " % switch_msg).lower() == 'y'
+        #
+
+        sending_file_msg = 'Chces posielat subor?'
+        sending_file = input("%s (y/N) " % sending_file_msg).lower() == 'y'
+
+        if sending_file:
+            print("Zadaj cestu ku suboru:")
+            filename = input("")
+            handle_client_request_to_send_data(message, server, filename=filename)
+        else:
+            print("Zadaj spravu: ")
+            _stdin = input("")
+            handle_client_request_to_send_data(message, server, message_for_stdin=_stdin)
+
+        if not started_waiting_for_ack:
+            started_waiting_for_ack = True
+            t1 = threading.Thread(target=listen_for_keep_alive)
+            t1.start()
+            t1.join()
+
+        msg = 'Chces ukoncit spojenie?'
+        end_connection = input("%s (y/N) " % msg).lower() == 'y'
+
+        if not end_connection:
+            pass
+        else:
+            print("Ending connection")
+            send_init('CONNECTION_CLOSE_REQUEST') #taka recyklacia, asi premenovat func
+
+            while True:
+                message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+                if shared.transl(message, 2, 4) == config.signals['CONNECTION_CLOSE_ACK']:
+                    connection_acquired = False
+                    break
+
+
+
+    # if switch_sides_toggle:
+    #     switch_sides_toggle = False
+    #     client_socket.close()
+    #     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    #     client_address = ("127.0.0.1", 1234)
+    #     client_socket.bind(client_address)
 
