@@ -26,13 +26,22 @@ connection_acquired = False
 started_waiting_for_ack = False
 address = ""
 
+
 def send(msg, address):
     message = msg.encode(FORMAT).strip()
     server_socket.sendto(message, address)
 
 
+failed_to_ack_keep_alive = False
+last_ack = time.time()
+
+
 def send_keepalive():
+    global last_ack
     global address
+    global failed_to_ack_keep_alive
+    global connection_acquired
+
     threading.Timer(5.0, send_keepalive).start()
     # while True:
     udp_header_arr = b''.join([
@@ -44,18 +53,20 @@ def send_keepalive():
         shared.get_data(b'')['data']
     ])
 
-    server_socket.sendto(udp_header_arr, address)
-    print("toto doslo z klienta.")
+    if (time.time() - last_ack) > config.common['DISCONNECT_AFTER_N_SECONDS']:
+        print("Client failed to ACK keep alive")
+        connection_acquired = False
+        failed_to_ack_keep_alive = True
+        last_ack = time.time()
+        send_ack(address, 'CONNECTION_CLOSE_ACK')
+        os._exit(1)
+
+    else:
+        server_socket.sendto(udp_header_arr, address)
+
     message, address = server_socket.recvfrom(MAX_DATA_SIZE)
-    if shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE_ACK']:
-        print("Asi ok")
-    # while True:
-    #     message, address = server_socket.recvfrom(MAX_DATA_SIZE)
-    #     if shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE_ACK']:
-    #         print("parada")
-    #         print(message)
-    #         break
-    # break
+    if message and shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE_ACK']:
+        last_ack = time.time()
 
 
 def send_ack(address, sign='ACKNOWLEDGEMENT', fragment_order=0, number_of_fragments=0):
@@ -91,7 +102,6 @@ def handle_server_responses():
         i = 0
         received_packets_count = 0
         total_crc_mismatched = 0
-
 
         if (shared.transl(message, 2, 4) == config.signals['CONNECTION_INITIALIZATION']) or connection_acquired:
 
@@ -166,7 +176,6 @@ def handle_server_responses():
                             print(f"################## CRC MISMATCH vo fragmente {order_n} ! ##################")
 
                         i += 1
-                        print("Need to be therer")
                         if i == BLOCK_SIZE:
 
                             if len(mismatched_fragment_order_numbers) == 0:
@@ -194,7 +203,6 @@ def handle_server_responses():
                             # print("Skonceny cyklus")
                             # return
                     if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
-                        print("sem")
                         pass
                         # return
                 else:
@@ -205,12 +213,16 @@ def handle_server_responses():
         pass
 
 
+refresh_socket = False
 while True:
 
     handle_server_responses()
+
+    failed_to_ack_keep_alive = False
 
     if not started_waiting_for_ack:
         started_waiting_for_ack = True
         t1 = threading.Thread(target=send_keepalive())
         t1.start()
         t1.join()
+

@@ -78,18 +78,22 @@ def send_keep_alive_ack():
         shared.get_number_of_fragments(),
         shared.get_crc(b'')
     ])
-    print("poselam kaa")
     client_socket.sendto(udp_header_arr, server_address)
 
-
+failed_to_ack_keep_alive = False
 def listen_for_keep_alive():
-    # while True:
     threading.Timer(5.0, listen_for_keep_alive).start()
-
+    global connection_acquired
+    global failed_to_ack_keep_alive
     ms, srv = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+
     if shared.transl(ms, 2, 4) == config.signals['KEEP_ALIVE']:
-        print("Prislo ACK-cko zo servera. Potvrdzujem.")
         send_keep_alive_ack()
+    elif shared.transl(ms, 2, 4) == config.signals['CONNECTION_CLOSE_ACK']:
+        os._exit(1)
+        # connection_acquired = False
+        # failed_to_ack_keep_alive = True
+
 
 
 def handle_client_request_to_send_data(message, server, filename='', already_connected=False, message_for_stdin=''):
@@ -128,17 +132,18 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                     # Refactor that, not needed anymore in this state
                     # ------------------
                     if i == 1 and not z: # Ak chces zasielat v 1. packete simulaciu tak treba tak sem True
-                        send_piece_of_data(bytes_to_send, i, False, nch=total_fragments)
+                        if config.common['SIMULACIA_CHYBY_VO_FRAGMENTE'] == 1:
+                            send_piece_of_data(bytes_to_send, i, True, nch=total_fragments)
+                        else:
+                            send_piece_of_data(bytes_to_send, i, False, nch=total_fragments)
                         client_block_of_fragments[i] = bytes_to_send
                         i += 1
                         z = True
                     # ------------------
 
                     if total_fragments < BLOCK_SIZE:
-                        print(f"Was last")
 
                         if (i - 1) == total_fragments:
-                            print(f"Be: {(i - 1)} {total_fragments}")
                             message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
 
                             if shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_CRC_MISMATCH']:
@@ -162,7 +167,7 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
 
 
                     # Simulation of CRC mismatch on 3. fragment
-                    if k == False and i == 3:
+                    if k == False and i == config.common['SIMULACIA_CHYBY_VO_FRAGMENTE'] and config.common['SIMULACIA_CHYBY_VO_FRAGMENTE'] != 1:
                         send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=total_fragments,
                                            mismatch_simulation=True)
                         k = True
@@ -214,8 +219,9 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                         elif shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE']:
                             while shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE']:
                                 if shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_OK']:
-                                    print("Semka :)")
-                                    print(message)
+                                    break
+                                elif shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_CRC_MISMATCH']:
+                                    break # TODO
 
 
                         i = 1
@@ -244,6 +250,8 @@ def client_prompt_port(prompt, prefill='1234'):
 
 while True:
     # 1. FIRST WE SEND INIT MESSAGE TO THE SERVER SO WE WANT TO INITIALIZE A CONNECTION
+    if failed_to_ack_keep_alive:
+        break
 
     if not connection_acquired:
         print("Zadaj cielovu IP adresu: ")
@@ -255,8 +263,8 @@ while True:
 
         send_init()  # We sent init message, now we listen for message from ACK from server
         message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
-        print(message)
         connection_acquired = True
+        failed_to_ack_keep_alive = False
 
     sending_file_msg = 'Chces posielat subor?'
     sending_file = input("%s (y/N) " % sending_file_msg).lower() == 'y'
