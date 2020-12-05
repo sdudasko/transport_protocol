@@ -18,6 +18,7 @@ client_socket = ""
 client_address = ""
 server_address = ""
 kill_threads = False
+t1 =""
 
 def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False, nch=0):
     correct_data_crc = False
@@ -107,6 +108,7 @@ def listen_for_keep_alive():
 
 
 def handle_client_request_to_send_data(message, server, filename='', already_connected=False, message_for_stdin=''):
+    raz=True
     if message:
         # We got ack after init from server, now are "connected",
         # not really connected since UDP is connectionless but kind of.
@@ -147,7 +149,7 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                         else:
                             send_piece_of_data(bytes_to_send, i, False, nch=total_fragments)
                         client_block_of_fragments[i] = bytes_to_send
-                        i += 1
+                        i += 1 #Staci upravit toto
                         z = True
                     # ------------------
                     if i % 2 == 0:
@@ -190,6 +192,7 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                                                mismatch_simulation=False)
                     else:
                         continue
+
                     i += 1
                     # Storing these data here just for backup, then we will overwrite those, we could probably
                     # solve it even without this helper variable with some seek func.
@@ -312,7 +315,11 @@ def client_behaviour(port_number=1234):
 
         sending_file_msg = 'Chces posielat subor?'
         sending_file = input("%s (y/N) " % sending_file_msg).lower() == 'y'
+
         kill_threads = True
+        if t1 != "":
+            t1.join()
+
 
         if sending_file:
             print("Zadaj cestu ku suboru:")
