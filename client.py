@@ -1,17 +1,18 @@
 import math
 import os
+import readline
 import socket
+import threading
+import multiprocessing
 
 import config
 import shared
-import readline
-import time
-import threading
 
 BLOCK_SIZE = 5
 HEADER_SIZE = 14
 FORMAT = 'utf-8'
 
+proc = ""
 connection_acquired = False
 started_waiting_for_ack = False
 
@@ -89,9 +90,9 @@ failed_to_ack_keep_alive = False
 def listen_for_keep_alive():
     global kill_threads
     if kill_threads:
-        threading.Timer(10.0, listen_for_keep_alive).cancel()
+        threading.Timer(5.0, listen_for_keep_alive).cancel()
     else:
-        threading.Timer(10.0, listen_for_keep_alive).start()
+        threading.Timer(5.0, listen_for_keep_alive).start()
         kill_threads = False
 
     if not kill_threads:
@@ -108,6 +109,7 @@ def listen_for_keep_alive():
 
 
 def handle_client_request_to_send_data(message, server, filename='', already_connected=False, message_for_stdin=''):
+    global kill_threads
     if message:
         # We got ack after init from server, now are "connected",
         # not really connected since UDP is connectionless but kind of.
@@ -122,14 +124,16 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                 filename = '_tmp_stdin.txt'
             else:
                 send_filename_message(filename)
+                print(f"Zaciatok prenosu suboru: {os.path.abspath(filename)}")
 
             max_addressing_size_without_header = shared.get_max_addressing_size_without_header()
 
             with open(filename, 'rb') as file:
 
                 bytes_to_send = file.read(max_addressing_size_without_header)
-                total_fragments = math.ceil(
-                    os.stat(filename).st_size / max_addressing_size_without_header)
+                total_fragments = math.ceil(os.stat(filename).st_size / max_addressing_size_without_header)
+                print(f"Velkost posielanych dat je: {os.stat(filename).st_size}B, rozdelili sme ich do: {total_fragments} fragmentov")
+
                 client_block_of_fragments = {}
 
                 i = 1
@@ -137,9 +141,10 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                 z = False
                 k = False
                 total_mismatchs = 0
+                client_block_of_fragments.clear()
                 while bytes_to_send != b'':
+                    kill_threads = True
 
-                    # Refactor that, not needed anymore in this state
                     # ------------------
                     if i == 1 and not z:  # Ak chces zasielat v 1. packete simulaciu tak treba tak sem True
                         if config.common['SIMULACIA_CHYBY_VO_FRAGMENTE'] == 1:
@@ -160,7 +165,7 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                                 order_of_first_crc_mismatched_fragment = int.from_bytes(message[0:2], 'little')
 
                                 tmp_client_block_of_fragments = client_block_of_fragments
-                                client_block_of_fragments = {}  # TODO - does this work? Check if it does not del the ref
+                                client_block_of_fragments = {}
 
                                 send_piece_of_data(
                                     tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment],
@@ -226,13 +231,7 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                                 pass
 
                         elif shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE']:
-                            while shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE']:
-                                if shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_OK']:
-                                    pass
-                                elif shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_CRC_MISMATCH']:
-                                    pass
-                                else:
-                                    pass
+                            pass
 
                         i = 1
                         n += 1
@@ -296,7 +295,7 @@ def client_behaviour(port_number=1234):
             server_address = (server_ip_address, int(server_port))
 
             send_init()  # We sent init message, now we listen for message from ACK from server
-            message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+            message, srvr = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
             connection_acquired = True
             failed_to_ack_keep_alive = False
 
@@ -307,21 +306,28 @@ def client_behaviour(port_number=1234):
         sending_file_msg = 'Chces posielat subor?'
         sending_file = input("%s (y/N) " % sending_file_msg).lower() == 'y'
         kill_threads = True
+        started_waiting_for_ack = False
 
         if sending_file:
             print("Zadaj cestu ku suboru:")
             filename = input("")
-            handle_client_request_to_send_data(message, server, filename=filename)
+            handle_client_request_to_send_data(message, srvr, filename=filename)
         else:
             print("Zadaj spravu: ")
             _stdin = input("")
-            handle_client_request_to_send_data(message, server, message_for_stdin=_stdin)
+            handle_client_request_to_send_data(message, srvr, message_for_stdin=_stdin)
 
-        if not started_waiting_for_ack:
-            started_waiting_for_ack = True
-            t1 = threading.Thread(target=listen_for_keep_alive)
-            t1.start()
-            t1.join()
+        kill_threads = False
+
+        # if not started_waiting_for_ack:
+        #     proc = multiprocessing.Process(target=listen_for_keep_alive(), args=())
+        #     proc.start()
+        #     # Terminate the process
+        #     proc.terminate()  # sends a SIGTERM
+        #     # t1 = threading.Thread(target=listen_for_keep_alive)
+        #     # t1.start()
+        #     # t1.join()
+
 
         msg = 'Chces ukoncit spojenie?'
         end_connection = input("%s (y/N) " % msg).lower() == 'y'
@@ -338,7 +344,7 @@ def client_behaviour(port_number=1234):
             send_init('CONNECTION_CLOSE_REQUEST')  # taka recyklacia, asi premenovat func
 
             while True:
-                message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+                message, srvr = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
                 if shared.transl(message, 2, 4) == config.signals['CONNECTION_CLOSE_ACK']:
                     connection_acquired = False
                     break

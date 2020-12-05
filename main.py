@@ -24,7 +24,6 @@ def get_input():
         sw_sides()
 
 
-
 msg = 'Chces byt server?'
 server_opt = input("%s (y/N) " % msg).lower() == 'y'
 
