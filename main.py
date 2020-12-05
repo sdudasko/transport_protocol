@@ -8,7 +8,10 @@ def sw_sides(i_want_to_be="client"):
 
     if switch_sides_bool:
         server.server_close()
+        server.kill_threads = True
+
         client.client_close()
+        client.kill_threads = True
 
         if i_want_to_be == "client":
             client.client_behaviour(1238)

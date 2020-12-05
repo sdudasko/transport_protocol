@@ -9,9 +9,10 @@ import shared
 BLOCK_SIZE = 5
 HEADER_SIZE = 14
 MAX_DATA_SIZE = 1500
+kill_threads = False
 
 FORMAT = 'utf-8'
-nf_prefix = "bbb"
+nf_prefix = "new_"
 
 received_packets_count = 0
 total_crc_mismatched = 0
@@ -31,31 +32,36 @@ def send_keepalive():
     global address
     global failed_to_ack_keep_alive
     global connection_acquired
+    global kill_threads
 
-    threading.Timer(5.0, send_keepalive).start()
-    # while True:
-    udp_header_arr = b''.join([
-        shared.get_fragment_order(0),
-        shared.get_signal_message('KEEP_ALIVE'),
-        shared.get_fragment_length(b''),
-        shared.get_number_of_fragments(),
-        shared.get_crc(b''),
-        shared.get_data(b'')['data']
-    ])
-
-    if (time.time() - last_ack) > config.common['DISCONNECT_AFTER_N_SECONDS']:
-        print("Client failed to ACK keep alive")
-        connection_acquired = False
-        failed_to_ack_keep_alive = True
-        last_ack = time.time()
-        send_ack(address, 'CONNECTION_CLOSE_ACK')
-
+    if kill_threads:
+        threading.Timer(30.0, send_keepalive).cancel()
     else:
-        server_socket.sendto(udp_header_arr, address)
+        threading.Timer(30.0, send_keepalive).start()
+        kill_threads = False
+    if not kill_threads:
+        udp_header_arr = b''.join([
+            shared.get_fragment_order(0),
+            shared.get_signal_message('KEEP_ALIVE'),
+            shared.get_fragment_length(b''),
+            shared.get_number_of_fragments(),
+            shared.get_crc(b''),
+            shared.get_data(b'')['data']
+        ])
 
-    message, address = server_socket.recvfrom(MAX_DATA_SIZE)
-    if message and shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE_ACK']:
-        last_ack = time.time()
+        if (time.time() - last_ack) > config.common['DISCONNECT_AFTER_N_SECONDS']:
+            print("Client failed to ACK keep alive")
+            connection_acquired = False
+            failed_to_ack_keep_alive = True
+            last_ack = time.time()
+            send_ack(address, 'CONNECTION_CLOSE_ACK')
+
+        else:
+            server_socket.sendto(udp_header_arr, address)
+
+        message, address = server_socket.recvfrom(MAX_DATA_SIZE)
+        if message and shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE_ACK']:
+            last_ack = time.time()
 
 
 def send_ack(address, sign='ACKNOWLEDGEMENT', fragment_order=0, number_of_fragments=0):
@@ -82,6 +88,7 @@ def handle_server_responses():
     message, address = server_socket.recvfrom(MAX_DATA_SIZE)  # 1. WAITING FOR INIT MESSAGE
     input_was_stdin = False
     global connection_acquired
+    filename_to_print = ""
 
     if shared.transl(message, 2, 4) == config.signals['CONNECTION_CLOSE_REQUEST']:
         send_ack(address, 'CONNECTION_CLOSE_ACK')
@@ -89,6 +96,7 @@ def handle_server_responses():
 
     if message:
         i = 0
+        c = 0
         received_packets_count = 0
         total_crc_mismatched = 0
 
@@ -102,13 +110,13 @@ def handle_server_responses():
                 message, address = server_socket.recvfrom(MAX_DATA_SIZE)
                 connection_acquired = True
 
-            if (message and shared.transl(message, 2, 4) == config.signals['FILENAME']) or (
-                    message and shared.transl(message, 2, 4) == config.signals['STDIN']):
+            if (message and shared.transl(message, 2, 4) == config.signals['FILENAME']) or (message and shared.transl(message, 2, 4) == config.signals['STDIN']):
                 if shared.transl(message, 2, 4) == config.signals['STDIN']:
                     input_was_stdin = True
 
                 hl = config.header['HEADER_SIZE'] + int.from_bytes(message[4:8], 'little')
-                new_file = open(nf_prefix + message[(config.header['HEADER_SIZE']):hl].decode('utf-8'), 'wb')
+                new_file = open("received_files/"+message[(config.header['HEADER_SIZE']):hl].decode('utf-8'), 'wb')
+                filename_to_print = message[(config.header['HEADER_SIZE']):hl].decode('utf-8')
 
                 # 3. RECEIVING FIRST FRAGMENT OF 1st block
                 message, address = server_socket.recvfrom(MAX_DATA_SIZE)
@@ -120,10 +128,13 @@ def handle_server_responses():
                     received_packets_count += 1
                     i = 1  #
                     order_n = shared.transl(message, 0, 2)
-
+                    dontbreakonfirstiteration = False
                     if not check_for_crc_match(message[10:14], message[14:]):
                         mismatched_fragment_order_numbers.append(shared.transl(message, 0, 2))
                         print(f"################## CRC MISMATCH vo fragmente {order_n} ! ##################")
+
+                        if int.from_bytes(message[8:10], 'little') < BLOCK_SIZE:
+                            dontbreakonfirstiteration = True
 
                     server_block_of_fragments[order_n] = message[(config.header['HEADER_SIZE']):]
 
@@ -140,22 +151,25 @@ def handle_server_responses():
                                 del mismatched_fragment_order_numbers[c]
                                 c += 1
 
-                            for key, value in server_block_of_fragments.items():
-                                new_file.write(value)
-                            send_ack(address, 'FRAGMENT_ACK_OK')
-                            # print(f"Zapisovaine posledneho bloku. {total_crc_mismatched}")
-                            # print(received_packets_count)
-                            # handle_keep_alive(address)
+                            if not dontbreakonfirstiteration:
+                                for key, value in server_block_of_fragments.items():
+                                    new_file.write(value)
+                                send_ack(address, 'FRAGMENT_ACK_OK')
 
-                            if input_was_stdin:
-                                file_to_read = open("_tmp_stdin.txt", "r")
-                                data = file_to_read.read()
-                                os.remove(nf_prefix + "_tmp_stdin.txt")
 
-                            break
+                            # if input_was_stdin:
+                            #     file_to_read = open("_tmp_stdin.txt", "r")
+                            #     data = file_to_read.read()
+                            #     os.remove(nf_prefix + "_tmp_stdin.txt")
+
+                            if not dontbreakonfirstiteration:
+                                return
+                            else:
+                                dontbreakonfirstiteration = False
 
                         message, address = server_socket.recvfrom(MAX_DATA_SIZE)
                         received_packets_count += 1
+
                         order_n = shared.transl(message, 0, 2)
 
                         server_block_of_fragments[order_n] = message[(config.header['HEADER_SIZE']):]
@@ -165,6 +179,7 @@ def handle_server_responses():
                             print(f"################## CRC MISMATCH vo fragmente {order_n} ! ##################")
 
                         i += 1
+
                         if i == BLOCK_SIZE:
 
                             if len(mismatched_fragment_order_numbers) == 0:
@@ -186,14 +201,14 @@ def handle_server_responses():
                                     c += 1
                             i = 0
                         if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
-                            global started_waiting_for_ack
-                            # started_waiting_for_ack = False
-                            pass
-                            # print("Skonceny cyklus")
-                            # return
+                            if input_was_stdin:
+                                file_to_read = open("_tmp_stdin.txt", "r")
+                                print("Prichadzajuca sprava: " + file_to_read.read())
+                            else:
+                                print("Subor bol prijaty a ulozeny na ceste:" + os.path.abspath(
+                                    "received_files/" + filename_to_print))
                     if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
-                        pass
-                        # return
+                        return
                 else:
                     raise ValueError("We were expecting to get filename.")
 
@@ -236,10 +251,10 @@ def server_behaviour(port_number = 1236):
         try:
             handle_server_responses()
 
-            # if not started_waiting_for_ack:
-            #     started_waiting_for_ack = True
-            #     t1 = threading.Thread(target=send_keepalive())
-            #     t1.start()
-            #     t1.join()
+            if not started_waiting_for_ack:
+                started_waiting_for_ack = True
+                t1 = threading.Thread(target=send_keepalive())
+                t1.start()
+                t1.join()
         except:
             return

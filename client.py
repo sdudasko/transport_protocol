@@ -8,7 +8,6 @@ import readline
 import time
 import threading
 
-
 BLOCK_SIZE = 5
 HEADER_SIZE = 14
 FORMAT = 'utf-8'
@@ -19,6 +18,7 @@ started_waiting_for_ack = False
 client_socket = ""
 client_address = ""
 server_address = ""
+kill_threads = False
 
 def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False, nch=0):
     correct_data_crc = False
@@ -60,7 +60,7 @@ def send(msg):
     client_socket.sendto(_message, server_address)
 
 
-def send_init(sign = 'CONNECTION_INITIALIZATION'):
+def send_init(sign='CONNECTION_INITIALIZATION'):
     udp_header_arr = b''.join([
         shared.get_fragment_order(0),
         shared.get_signal_message(sign),
@@ -70,6 +70,7 @@ def send_init(sign = 'CONNECTION_INITIALIZATION'):
 
     ])
     client_socket.sendto(udp_header_arr, server_address)
+
 
 def send_keep_alive_ack():
     udp_header_arr = b''.join([
@@ -81,24 +82,32 @@ def send_keep_alive_ack():
     ])
     client_socket.sendto(udp_header_arr, server_address)
 
+
 failed_to_ack_keep_alive = False
+
+
 def listen_for_keep_alive():
-    threading.Timer(5.0, listen_for_keep_alive).start()
-    global connection_acquired
-    global failed_to_ack_keep_alive
-    ms, srv = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+    global kill_threads
+    if kill_threads:
+        threading.Timer(10.0, listen_for_keep_alive).cancel()
+    else:
+        threading.Timer(10.0, listen_for_keep_alive).start()
+        kill_threads = False
 
-    if shared.transl(ms, 2, 4) == config.signals['KEEP_ALIVE']:
-        send_keep_alive_ack()
-    elif shared.transl(ms, 2, 4) == config.signals['CONNECTION_CLOSE_ACK']:
-        os._exit(1)
-        # connection_acquired = False
-        # failed_to_ack_keep_alive = True
+    if not kill_threads:
+        global connection_acquired
+        global failed_to_ack_keep_alive
+        ms, srv = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
 
+        if shared.transl(ms, 2, 4) == config.signals['KEEP_ALIVE']:
+            send_keep_alive_ack()
+        elif shared.transl(ms, 2, 4) == config.signals['CONNECTION_CLOSE_ACK']:
+            os._exit(1)
+            # connection_acquired = False
+            # failed_to_ack_keep_alive = True
 
 
 def handle_client_request_to_send_data(message, server, filename='', already_connected=False, message_for_stdin=''):
-
     if message:
         # We got ack after init from server, now are "connected",
         # not really connected since UDP is connectionless but kind of.
@@ -132,7 +141,7 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
 
                     # Refactor that, not needed anymore in this state
                     # ------------------
-                    if i == 1 and not z: # Ak chces zasielat v 1. packete simulaciu tak treba tak sem True
+                    if i == 1 and not z:  # Ak chces zasielat v 1. packete simulaciu tak treba tak sem True
                         if config.common['SIMULACIA_CHYBY_VO_FRAGMENTE'] == 1:
                             send_piece_of_data(bytes_to_send, i, True, nch=total_fragments)
                         else:
@@ -163,12 +172,11 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
 
                                 del tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment]
 
-
                     bytes_to_send = file.read(max_addressing_size_without_header)
 
-
                     # Simulation of CRC mismatch on 3. fragment
-                    if k == False and i == config.common['SIMULACIA_CHYBY_VO_FRAGMENTE'] and config.common['SIMULACIA_CHYBY_VO_FRAGMENTE'] != 1:
+                    if k == False and i == config.common['SIMULACIA_CHYBY_VO_FRAGMENTE'] and config.common[
+                        'SIMULACIA_CHYBY_VO_FRAGMENTE'] != 1:
                         send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=total_fragments,
                                            mismatch_simulation=True)
                         k = True
@@ -220,18 +228,15 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                         elif shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE']:
                             while shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE']:
                                 if shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_OK']:
-                                    break
+                                    pass
                                 elif shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_CRC_MISMATCH']:
-                                    break # TODO
-
+                                    pass
+                                else:
+                                    pass
 
                         i = 1
                         n += 1
             global started_waiting_for_ack
-            # started_waiting_for_ack = False
-            # File is all read
-
-        # listen_for_keep_alive()
 
 
 def client_prompt_ip(prompt, prefill='127.0.0.1'):
@@ -241,14 +246,17 @@ def client_prompt_ip(prompt, prefill='127.0.0.1'):
     finally:
         readline.set_startup_hook()
 
-def client_prompt_port(prompt, prefill='1234'):
+
+def client_prompt_port(prompt, prefill='1236'):
     readline.set_startup_hook(lambda: readline.insert_text(prefill))
     try:
         return input(prompt)
     finally:
         readline.set_startup_hook()
 
+
 switch_sides_toggle = True
+
 
 def setup_client(port_number):
     global client_socket
@@ -266,12 +274,14 @@ def client_close():
 
     client_socket.close()
 
-def client_behaviour(port_number = 1234):
+
+def client_behaviour(port_number=1234):
     global started_waiting_for_ack
     global failed_to_ack_keep_alive
     global connection_acquired
     global server_address
-
+    global t1
+    global kill_threads
     setup_client(port_number)
 
     while True:
@@ -290,12 +300,13 @@ def client_behaviour(port_number = 1234):
             connection_acquired = True
             failed_to_ack_keep_alive = False
 
-        # switch_msg = 'Chces vymenit komunikujuce strany?'
-        # switch_sides = input("%s (y/N) " % switch_msg).lower() == 'y'
-        #
+        print("Zadaj velkost fragmentu (bez hlavicky):")
+        velkost_fragmentu = input("")
+        config.header['MAX_ADDRESSING_SIZE_WITHOUT_HEADER'] = int(velkost_fragmentu)
 
         sending_file_msg = 'Chces posielat subor?'
         sending_file = input("%s (y/N) " % sending_file_msg).lower() == 'y'
+        kill_threads = True
 
         if sending_file:
             print("Zadaj cestu ku suboru:")
@@ -306,11 +317,11 @@ def client_behaviour(port_number = 1234):
             _stdin = input("")
             handle_client_request_to_send_data(message, server, message_for_stdin=_stdin)
 
-        # if not started_waiting_for_ack:
-        #     started_waiting_for_ack = True
-        #     t1 = threading.Thread(target=listen_for_keep_alive)
-        #     t1.start()
-        #     t1.join()
+        if not started_waiting_for_ack:
+            started_waiting_for_ack = True
+            t1 = threading.Thread(target=listen_for_keep_alive)
+            t1.start()
+            t1.join()
 
         msg = 'Chces ukoncit spojenie?'
         end_connection = input("%s (y/N) " % msg).lower() == 'y'
@@ -324,20 +335,11 @@ def client_behaviour(port_number = 1234):
             pass
         else:
             print("Ending connection")
-            send_init('CONNECTION_CLOSE_REQUEST') #taka recyklacia, asi premenovat func
+            send_init('CONNECTION_CLOSE_REQUEST')  # taka recyklacia, asi premenovat func
 
             while True:
                 message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
                 if shared.transl(message, 2, 4) == config.signals['CONNECTION_CLOSE_ACK']:
                     connection_acquired = False
                     break
-
-
-
-    # if switch_sides_toggle:
-    #     switch_sides_toggle = False
-    #     client_socket.close()
-    #     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    #     client_address = ("127.0.0.1", 1234)
-    #     client_socket.bind(client_address)
 

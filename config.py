@@ -2,7 +2,7 @@
 common = dict(
     FORMAT = 'utf-8',
     DISCONNECT_AFTER_N_SECONDS = 60,
-    SIMULACIA_CHYBY_VO_FRAGMENTE = 1
+    SIMULACIA_CHYBY_VO_FRAGMENTE = 100
 )
 # SIGNALS
 signals = dict(
