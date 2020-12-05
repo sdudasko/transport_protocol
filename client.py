@@ -3,7 +3,6 @@ import os
 import readline
 import socket
 import threading
-import multiprocessing
 
 import config
 import shared
@@ -12,7 +11,6 @@ BLOCK_SIZE = 5
 HEADER_SIZE = 14
 FORMAT = 'utf-8'
 
-proc = ""
 connection_acquired = False
 started_waiting_for_ack = False
 
@@ -81,7 +79,9 @@ def send_keep_alive_ack():
         shared.get_number_of_fragments(),
         shared.get_crc(b'')
     ])
-    client_socket.sendto(udp_header_arr, server_address)
+
+    if not client_socket._closed:
+        client_socket.sendto(udp_header_arr, server_address)
 
 
 failed_to_ack_keep_alive = False
@@ -98,15 +98,8 @@ def listen_for_keep_alive():
     if not kill_threads:
         global connection_acquired
         global failed_to_ack_keep_alive
-        # ms, srv = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
 
-        # if shared.transl(ms, 2, 4) == config.signals['KEEP_ALIVE']:
         send_keep_alive_ack()
-        # elif shared.transl(ms, 2, 4) == config.signals['CONNECTION_CLOSE_ACK']:
-        #     os._exit(1)
-        # return
-            # connection_acquired = False
-            # failed_to_ack_keep_alive = True
 
 
 def handle_client_request_to_send_data(message, server, filename='', already_connected=False, message_for_stdin=''):
@@ -323,9 +316,6 @@ def client_behaviour(port_number=1234):
         kill_threads = False
 
         if not started_waiting_for_ack:
-            proc = multiprocessing.Process(target=listen_for_keep_alive(), args=())
-            proc.start()
-            # Terminate the process
             t1 = threading.Thread(target=listen_for_keep_alive)
             t1.start()
             t1.join()
@@ -334,13 +324,15 @@ def client_behaviour(port_number=1234):
         msg = 'Chces ukoncit spojenie?'
         end_connection = input("%s (y/N) " % msg).lower() == 'y'
 
-        msg = 'Chces vymenit strany?'
-        switch_s = input("%s (y/N) " % msg).lower() == 'y'
-
-        if switch_s:
-            return
+        t1.join()
+        # msg = 'Chces vymenit strany?'
+        # switch_s = input("%s (y/N) " % msg).lower() == 'y'
+        #
+        # if switch_s:
+        #     t1.join()
+        #     return
         if not end_connection:
-            pass
+            return
         else:
             print("Ending connection")
             send_init('CONNECTION_CLOSE_REQUEST')  # taka recyklacia, asi premenovat func

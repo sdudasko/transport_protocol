@@ -2,16 +2,14 @@ import server
 import client
 import threading
 
-def sw_sides(i_want_to_be="client"):
+def ask_to_switch_sides(i_want_to_be="client"):
     switch_sides = 'Do you want to switch sides?'
     switch_sides_bool = input("%s (y/N) " % switch_sides).lower() == 'y'
 
     if switch_sides_bool:
-        server.server_close()
-        server.kill_threads = True
 
+        server.server_close()
         client.client_close()
-        client.kill_threads = True
 
         if i_want_to_be == "client":
             client.client_behaviour(1238)
@@ -21,7 +19,7 @@ def sw_sides(i_want_to_be="client"):
 
 def get_input():
     while True:
-        sw_sides()
+        ask_to_switch_sides()
 
 
 msg = 'Chces byt server?'
@@ -32,8 +30,9 @@ while True:
         input_thread = threading.Thread(target=get_input)
         input_thread.start()
         server.server_behaviour()
+        input_thread.join()
     else:
         client.client_behaviour()
-        sw_sides("server")
+        ask_to_switch_sides("server")
 
 
