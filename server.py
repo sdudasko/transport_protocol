@@ -59,6 +59,7 @@ def send_keepalive():
         message, address = server_socket.recvfrom(MAX_DATA_SIZE)
         if message and shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE_ACK']:
             last_ack = time.time()
+        return
 
 
 def send_ack(address, sign='ACKNOWLEDGEMENT', fragment_order=0, number_of_fragments=0):
@@ -263,18 +264,19 @@ def server_behaviour(port_number = 1236):
             if os.path.exists("received_files/_tmp_stdin.txt"):
                 os.remove("received_files/_tmp_stdin.txt")
 
-            # kill_threads = True
+            kill_threads = True
             handle_server_responses()
+            kill_threads = False
 
             if os.path.exists("received_files/_tmp_stdin.txt"):
                 file_to_read = open("received_files/_tmp_stdin.txt", "r")
                 data = file_to_read.read()
                 print("Prichadzajuca sprava: " + data)
 
-            # if not started_waiting_for_ack:
-            #     started_waiting_for_ack = True
-            #     t1 = threading.Thread(target=send_keepalive())
-            #     t1.start()
-            #     t1.join()
+            if not started_waiting_for_ack:
+                started_waiting_for_ack = True
+                t1 = threading.Thread(target=send_keepalive)
+                t1.start()
+                t1.join()
         except:
             return

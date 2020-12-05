@@ -98,12 +98,13 @@ def listen_for_keep_alive():
     if not kill_threads:
         global connection_acquired
         global failed_to_ack_keep_alive
-        ms, srv = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+        # ms, srv = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
 
-        if shared.transl(ms, 2, 4) == config.signals['KEEP_ALIVE']:
-            send_keep_alive_ack()
-        elif shared.transl(ms, 2, 4) == config.signals['CONNECTION_CLOSE_ACK']:
-            os._exit(1)
+        # if shared.transl(ms, 2, 4) == config.signals['KEEP_ALIVE']:
+        send_keep_alive_ack()
+        # elif shared.transl(ms, 2, 4) == config.signals['CONNECTION_CLOSE_ACK']:
+        #     os._exit(1)
+        # return
             # connection_acquired = False
             # failed_to_ack_keep_alive = True
 
@@ -311,22 +312,23 @@ def client_behaviour(port_number=1234):
         if sending_file:
             print("Zadaj cestu ku suboru:")
             filename = input("")
+            kill_threads = True
             handle_client_request_to_send_data(message, srvr, filename=filename)
         else:
             print("Zadaj spravu: ")
             _stdin = input("")
+            kill_threads = True
             handle_client_request_to_send_data(message, srvr, message_for_stdin=_stdin)
 
         kill_threads = False
 
-        # if not started_waiting_for_ack:
-        #     proc = multiprocessing.Process(target=listen_for_keep_alive(), args=())
-        #     proc.start()
-        #     # Terminate the process
-        #     proc.terminate()  # sends a SIGTERM
-        #     # t1 = threading.Thread(target=listen_for_keep_alive)
-        #     # t1.start()
-        #     # t1.join()
+        if not started_waiting_for_ack:
+            proc = multiprocessing.Process(target=listen_for_keep_alive(), args=())
+            proc.start()
+            # Terminate the process
+            t1 = threading.Thread(target=listen_for_keep_alive)
+            t1.start()
+            t1.join()
 
 
         msg = 'Chces ukoncit spojenie?'
