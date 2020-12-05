@@ -139,7 +139,7 @@ def handle_server_responses():
                     server_block_of_fragments[order_n] = message[(config.header['HEADER_SIZE']):]
 
                     while True:
-
+                        print(f"STATUS: {received_packets_count - total_crc_mismatched} {int.from_bytes(message[8:10], 'little')}")
                         if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
                             c = 0
 
@@ -156,11 +156,10 @@ def handle_server_responses():
                                     new_file.write(value)
                                 send_ack(address, 'FRAGMENT_ACK_OK')
 
+                            file_to_read = open("received_files/_tmp_stdin.txt", "r")
+                            data = file_to_read.read()
+                            print("Prichadzajuca sprava: " + data)
 
-                            # if input_was_stdin:
-                            #     file_to_read = open("_tmp_stdin.txt", "r")
-                            #     data = file_to_read.read()
-                            #     os.remove(nf_prefix + "_tmp_stdin.txt")
 
                             if not dontbreakonfirstiteration:
                                 return
@@ -200,10 +199,13 @@ def handle_server_responses():
                                     del mismatched_fragment_order_numbers[c]
                                     c += 1
                             i = 0
+
+
                         if (received_packets_count - total_crc_mismatched) == int.from_bytes(message[8:10], 'little'):
                             if input_was_stdin:
-                                file_to_read = open("_tmp_stdin.txt", "r")
-                                print("Prichadzajuca sprava: " + file_to_read.read())
+                                file_to_read = open("received_files/_tmp_stdin.txt", "r")
+                                data = file_to_read.read()
+                                print("Prichadzajuca sprava: " + data)
                             else:
                                 print("Subor bol prijaty a ulozeny na ceste:" + os.path.abspath(
                                     "received_files/" + filename_to_print))
@@ -249,7 +251,15 @@ def server_behaviour(port_number = 1236):
     while True:
 
         try:
+            if os.path.exists("received_files/_tmp_stdin.txt"):
+                os.remove("received_files/_tmp_stdin.txt")
+
             handle_server_responses()
+
+            if os.path.exists("received_files/_tmp_stdin.txt"):
+                file_to_read = open("received_files/_tmp_stdin.txt", "r")
+                data = file_to_read.read()
+                print("Prichadzajuca sprava: " + data)
 
             if not started_waiting_for_ack:
                 started_waiting_for_ack = True
