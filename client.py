@@ -8,7 +8,6 @@ import readline
 import time
 import threading
 
-BLOCK_SIZE = 5
 HEADER_SIZE = 14
 FORMAT = 'utf-8'
 
@@ -128,8 +127,8 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
             with open(filename, 'rb') as file:
 
                 bytes_to_send = file.read(max_addressing_size_without_header)
-                total_fragments = math.ceil(
-                    os.stat(filename).st_size / max_addressing_size_without_header)
+                # total_fragments = math.ceil(os.stat(filename).st_size / max_addressing_size_without_header)
+                total_fragments = math.ceil((math.ceil(os.stat(filename).st_size / max_addressing_size_without_header))/2)
                 client_block_of_fragments = {}
 
                 i = 1
@@ -138,6 +137,7 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                 k = False
                 total_mismatchs = 0
                 while bytes_to_send != b'':
+
 
                     # Refactor that, not needed anymore in this state
                     # ------------------
@@ -150,10 +150,14 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                         i += 1
                         z = True
                     # ------------------
+                    if i % 2 == 0:
+                        bytes_to_send = file.read(max_addressing_size_without_header)
+                        i+=1
+                        continue
 
-                    if total_fragments < BLOCK_SIZE:
+                    if total_fragments*2 < config.data['BLOCK_SIZE']:
 
-                        if (i - 1) == total_fragments:
+                        if (i - 1) == total_fragments*2:
                             message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
 
                             if shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_CRC_MISMATCH']:
@@ -166,7 +170,7 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                                     tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment],
                                     order_of_first_crc_mismatched_fragment, nch=total_fragments)
 
-                                client_block_of_fragments[i + n * BLOCK_SIZE] = tmp_client_block_of_fragments[
+                                client_block_of_fragments[i + n * config.data['BLOCK_SIZE']] = tmp_client_block_of_fragments[
                                     order_of_first_crc_mismatched_fragment]
                                 i += 1
 
@@ -175,25 +179,27 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                     bytes_to_send = file.read(max_addressing_size_without_header)
 
                     # Simulation of CRC mismatch on 3. fragment
-                    if k == False and i == config.common['SIMULACIA_CHYBY_VO_FRAGMENTE'] and config.common[
-                        'SIMULACIA_CHYBY_VO_FRAGMENTE'] != 1:
-                        send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=total_fragments,
-                                           mismatch_simulation=True)
-                        k = True
+                    if (i + total_mismatchs - 1) % 2 == 0:
+                        if k == False and i == config.common['SIMULACIA_CHYBY_VO_FRAGMENTE'] and config.common[
+                            'SIMULACIA_CHYBY_VO_FRAGMENTE'] != 1:
+                            send_piece_of_data(bytes_to_send, i + n * config.data['BLOCK_SIZE'], nch=total_fragments,
+                                               mismatch_simulation=True)
+                            k = True
+                        else:
+                            send_piece_of_data(bytes_to_send, i + n * config.data['BLOCK_SIZE'], nch=total_fragments,
+                                               mismatch_simulation=False)
                     else:
-                        send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=total_fragments,
-                                           mismatch_simulation=False)
-
+                        continue
+                    i += 1
                     # Storing these data here just for backup, then we will overwrite those, we could probably
                     # solve it even without this helper variable with some seek func.
-                    client_block_of_fragments[i + n * BLOCK_SIZE] = bytes_to_send
-                    i += 1
+                    client_block_of_fragments[i + n * config.data['BLOCK_SIZE']] = bytes_to_send
 
-                    # We sent BLOCK_SIZE number of fragments, now we wait for reply from server.
+                    # We sent config.data['BLOCK_SIZE] number of fragments, now we wait for reply from server.
                     # If we got everything right we get ack with permission to send next block of data.
                     # If there was an error, we get n msgs where every msg tells in ORDER which fragment was corrupted.
 
-                    if (i + total_mismatchs - 1) == BLOCK_SIZE:
+                    if (i + total_mismatchs - 1) == config.data['BLOCK_SIZE']:
                         total_mismatchs = 0
 
                         message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
@@ -212,7 +218,7 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
                             send_piece_of_data(tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment],
                                                order_of_first_crc_mismatched_fragment, nch=total_fragments)
 
-                            client_block_of_fragments[i + n * BLOCK_SIZE] = tmp_client_block_of_fragments[
+                            client_block_of_fragments[i + n * config.data['BLOCK_SIZE']] = tmp_client_block_of_fragments[
                                 order_of_first_crc_mismatched_fragment]
 
                             # i += 1
