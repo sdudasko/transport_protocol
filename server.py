@@ -6,7 +6,6 @@ import time
 import config
 import shared
 
-BLOCK_SIZE = 5
 HEADER_SIZE = 14
 MAX_DATA_SIZE = 1500
 kill_threads = False
@@ -54,17 +53,19 @@ def send_keepalive():
             send_ack(address, 'CONNECTION_CLOSE_ACK')
 
         else:
+            # Osetrujeme, ak boli zavrete sockety po vymene stran, tieto este pocitaju so starymi socketami
             if not server_socket._closed:
                 server_socket.sendto(udp_header_arr, address)
 
         if not server_socket._closed:
             message, address = server_socket.recvfrom(MAX_DATA_SIZE)
+            last_ack = time.time()
 
             if message and shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE_ACK']:
                 last_ack = time.time()
         return
 
-
+# Odpoved na inicializcnu spravu a vseobecne ACK
 def send_ack(address, sign='ACKNOWLEDGEMENT', fragment_order=0, number_of_fragments=0):
     udp_header_arr = b''.join([
         shared.get_fragment_order(fragment_order),
@@ -77,19 +78,22 @@ def send_ack(address, sign='ACKNOWLEDGEMENT', fragment_order=0, number_of_fragme
     server_socket.sendto(udp_header_arr, address)
 
 
+# Medznik pre crc mismatch, pocitame polynomialnou funkciou s 32 bitovym polynomom
 def check_for_crc_match(compared_crc, data):
     calculated_crc = shared.calculate_crc(data)
     calculated_crc = int(calculated_crc[2:], 16)
 
     return int.from_bytes(compared_crc, 'little') == calculated_crc
 
-
+# Hlavna funkcia, ktora spracuvava poziadavky prichadzajuce z vysielajucej strany
 def handle_server_responses():
     global address
     global kill_threads
+    global last_ack
     message, address = server_socket.recvfrom(MAX_DATA_SIZE)  # 1. WAITING FOR INIT MESSAGE
 
     if shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE_ACK']:
+        last_ack = time.time()
         return
 
     input_was_stdin = False
@@ -141,7 +145,7 @@ def handle_server_responses():
                         mismatched_fragment_order_numbers.append(shared.transl(message, 0, 2))
                         print(f"CRC MISMATCH: Prijaty fragment s poradovym cislom: {shared.transl(message, 0, 2)}")
 
-                        if int.from_bytes(message[8:10], 'little') < BLOCK_SIZE:
+                        if int.from_bytes(message[8:10], 'little') < config.data['BLOCK_SIZE']:
                             dontbreakonfirstiteration = True
 
                     server_block_of_fragments[shared.transl(message, 0, 2)] = message[(config.header['HEADER_SIZE']):]
@@ -192,7 +196,8 @@ def handle_server_responses():
 
                         i += 1
 
-                        if i == BLOCK_SIZE: # Sme na k-tom fragmente, k je pocet blokov
+                        # Pri k-tom fragmente potrebujeem poslat klientovi stav, ci sme prijali fragmenty v poriadku
+                        if i == config.data['BLOCK_SIZE']: # Sme na k-tom fragmente, k je pocet blokov
 
                             if len(mismatched_fragment_order_numbers) == 0:
 

@@ -7,7 +7,6 @@ import threading
 import config
 import shared
 
-BLOCK_SIZE = 5
 HEADER_SIZE = 14
 FORMAT = 'utf-8'
 
@@ -20,6 +19,7 @@ server_address = ""
 kill_threads = False
 
 
+# Funkcia, ktora posiela blok dat, posiela spravne data a taktiez je pozuivanna na preposielanie chybnych dat
 def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False, nch=0):
     correct_data_crc = False
     if mismatch_simulation:
@@ -36,7 +36,7 @@ def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False, nch=
 
     client_socket.sendto(udp_header_arr, server_address)
 
-
+# Posielame nazov suboru, ak sa jedna o stdin, tak posielame signal, ze sa jedna o stdin
 def send_filename_message(filename_arg, sign='FILENAME'):  # _arg because of shadowing the outer scope var name
 
     udp_header_arr = b''.join([
@@ -59,7 +59,7 @@ def send(msg):
     client_socket.sendto(send_length, server_address)
     client_socket.sendto(_message, server_address)
 
-
+# Posielame nou inicializacnu spravu pri zaciatku spojenia alebo po znovakomunikacii po ukonceni spojenia
 def send_init(sign='CONNECTION_INITIALIZATION'):
     udp_header_arr = b''.join([
         shared.get_fragment_order(0),
@@ -87,7 +87,7 @@ def send_keep_alive_ack():
 
 failed_to_ack_keep_alive = False
 
-
+# Timer ktory posiela Keep alive spravu na server
 def listen_for_keep_alive():
     global kill_threads
     if kill_threads:
@@ -102,7 +102,7 @@ def listen_for_keep_alive():
 
         send_keep_alive_ack()
 
-
+# Hlavna funkcia, ktora spracuvava komunikaciu a requesty klienta
 def handle_client_request_to_send_data(message, filename='', already_connected=False, message_for_stdin=''):
     global kill_threads
     if message:
@@ -138,6 +138,7 @@ def handle_client_request_to_send_data(message, filename='', already_connected=F
                 k = False
                 total_mismatchs = 0
                 client_block_of_fragments.clear()
+                # Citame subor
                 while bytes_to_send != b'':
                     kill_threads = True
 
@@ -152,7 +153,8 @@ def handle_client_request_to_send_data(message, filename='', already_connected=F
                         z = True
                     # ------------------
 
-                    if total_fragments < BLOCK_SIZE:
+                    # Specialne osetrujeme pripad, ked je pocet fragmentov mensi ako block size
+                    if total_fragments < config.data['BLOCK_SIZE']:
 
                         if (i - 1) == total_fragments:
                             message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
@@ -167,7 +169,7 @@ def handle_client_request_to_send_data(message, filename='', already_connected=F
                                     tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment],
                                     order_of_first_crc_mismatched_fragment, nch=total_fragments)
 
-                                client_block_of_fragments[i + n * BLOCK_SIZE] = tmp_client_block_of_fragments[
+                                client_block_of_fragments[i + n * config.data['BLOCK_SIZE']] = tmp_client_block_of_fragments[
                                     order_of_first_crc_mismatched_fragment]
                                 i += 1
 
@@ -175,26 +177,26 @@ def handle_client_request_to_send_data(message, filename='', already_connected=F
 
                     bytes_to_send = file.read(max_addressing_size_without_header)
 
-                    # Simulation of CRC mismatch on 3. fragment
+                    # Simulation of CRC mismatch on n. fragment
                     if k == False and i == config.common['SIMULACIA_CHYBY_VO_FRAGMENTE'] and config.common[
                         'SIMULACIA_CHYBY_VO_FRAGMENTE'] != 1:
-                        send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=total_fragments,
+                        send_piece_of_data(bytes_to_send, i + n * config.data['BLOCK_SIZE'], nch=total_fragments,
                                            mismatch_simulation=True)
                         k = True
                     else:
-                        send_piece_of_data(bytes_to_send, i + n * BLOCK_SIZE, nch=total_fragments,
+                        send_piece_of_data(bytes_to_send, i + n * config.data['BLOCK_SIZE'], nch=total_fragments,
                                            mismatch_simulation=False)
 
                     # Storing these data here just for backup, then we will overwrite those, we could probably
                     # solve it even without this helper variable with some seek func.
-                    client_block_of_fragments[i + n * BLOCK_SIZE] = bytes_to_send
+                    client_block_of_fragments[i + n * config.data['BLOCK_SIZE']] = bytes_to_send
                     i += 1
 
-                    # We sent BLOCK_SIZE number of fragments, now we wait for reply from server.
+                    # We sent config.data['BLOCK_SIZE number of fragments, now we wait for reply from server.
                     # If we got everything right we get ack with permission to send next block of data.
                     # If there was an error, we get n msgs where every msg tells in ORDER which fragment was corrupted.
 
-                    if (i + total_mismatchs - 1) == BLOCK_SIZE:
+                    if (i + total_mismatchs - 1) == config.data['BLOCK_SIZE']:
                         total_mismatchs = 0
 
                         message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
@@ -213,7 +215,7 @@ def handle_client_request_to_send_data(message, filename='', already_connected=F
                             send_piece_of_data(tmp_client_block_of_fragments[order_of_first_crc_mismatched_fragment],
                                                order_of_first_crc_mismatched_fragment, nch=total_fragments)
 
-                            client_block_of_fragments[i + n * BLOCK_SIZE] = tmp_client_block_of_fragments[
+                            client_block_of_fragments[i + n * config.data['BLOCK_SIZE']] = tmp_client_block_of_fragments[
                                 order_of_first_crc_mismatched_fragment]
 
                             # i += 1
@@ -252,7 +254,7 @@ def client_prompt_port(prompt, prefill='1236'):
 
 switch_sides_toggle = True
 
-
+# Nastavime zakladne premenne pre klienta
 def setup_client(port_number):
     global client_socket
     global client_address
@@ -269,9 +271,8 @@ def client_close():
 
     client_socket.close()
 
-
+# Mame ack message ako globalnu pre pripad, ze uz posielame spravy po nadviazani komunikacie
 ackmessage = ""
-
 
 def client_behaviour(port_number=1234):
     global started_waiting_for_ack
