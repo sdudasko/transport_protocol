@@ -19,6 +19,7 @@ client_address = ""
 server_address = ""
 kill_threads = False
 
+
 def send_piece_of_data(bytes_to_send_arg, order, mismatch_simulation=False, nch=0):
     correct_data_crc = False
     if mismatch_simulation:
@@ -90,9 +91,9 @@ failed_to_ack_keep_alive = False
 def listen_for_keep_alive():
     global kill_threads
     if kill_threads:
-        threading.Timer(5.0, listen_for_keep_alive).cancel()
+        threading.Timer(10.0, listen_for_keep_alive).cancel()
     else:
-        threading.Timer(5.0, listen_for_keep_alive).start()
+        threading.Timer(10.0, listen_for_keep_alive).start()
         kill_threads = False
 
     if not kill_threads:
@@ -102,7 +103,7 @@ def listen_for_keep_alive():
         send_keep_alive_ack()
 
 
-def handle_client_request_to_send_data(message, server, filename='', already_connected=False, message_for_stdin=''):
+def handle_client_request_to_send_data(message, filename='', already_connected=False, message_for_stdin=''):
     global kill_threads
     if message:
         # We got ack after init from server, now are "connected",
@@ -126,7 +127,8 @@ def handle_client_request_to_send_data(message, server, filename='', already_con
 
                 bytes_to_send = file.read(max_addressing_size_without_header)
                 total_fragments = math.ceil(os.stat(filename).st_size / max_addressing_size_without_header)
-                print(f"Velkost posielanych dat je: {os.stat(filename).st_size}B, rozdelili sme ich do: {total_fragments} fragmentov")
+                print(
+                    f"Velkost posielanych dat je: {os.stat(filename).st_size}B, rozdelili sme ich do: {total_fragments} fragmentov")
 
                 client_block_of_fragments = {}
 
@@ -268,6 +270,9 @@ def client_close():
     client_socket.close()
 
 
+ackmessage = ""
+
+
 def client_behaviour(port_number=1234):
     global started_waiting_for_ack
     global failed_to_ack_keep_alive
@@ -275,6 +280,7 @@ def client_behaviour(port_number=1234):
     global server_address
     global t1
     global kill_threads
+    global ackmessage
     setup_client(port_number)
 
     while True:
@@ -289,7 +295,7 @@ def client_behaviour(port_number=1234):
             server_address = (server_ip_address, int(server_port))
 
             send_init()  # We sent init message, now we listen for message from ACK from server
-            message, srvr = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
+            ackmessage, srvr = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
             connection_acquired = True
             failed_to_ack_keep_alive = False
 
@@ -306,12 +312,13 @@ def client_behaviour(port_number=1234):
             print("Zadaj cestu ku suboru:")
             filename = input("")
             kill_threads = True
-            handle_client_request_to_send_data(message, srvr, filename=filename)
+
+            handle_client_request_to_send_data(ackmessage, filename=filename)
         else:
             print("Zadaj spravu: ")
             _stdin = input("")
             kill_threads = True
-            handle_client_request_to_send_data(message, srvr, message_for_stdin=_stdin)
+            handle_client_request_to_send_data(ackmessage, message_for_stdin=_stdin)
 
         kill_threads = False
 
@@ -320,17 +327,11 @@ def client_behaviour(port_number=1234):
             t1.start()
             t1.join()
 
-
         msg = 'Chces ukoncit spojenie?'
         end_connection = input("%s (y/N) " % msg).lower() == 'y'
 
         t1.join()
-        # msg = 'Chces vymenit strany?'
-        # switch_s = input("%s (y/N) " % msg).lower() == 'y'
-        #
-        # if switch_s:
-        #     t1.join()
-        #     return
+
         if not end_connection:
             return
         else:
@@ -342,4 +343,3 @@ def client_behaviour(port_number=1234):
                 if shared.transl(message, 2, 4) == config.signals['CONNECTION_CLOSE_ACK']:
                     connection_acquired = False
                     break
-

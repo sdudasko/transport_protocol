@@ -54,11 +54,14 @@ def send_keepalive():
             send_ack(address, 'CONNECTION_CLOSE_ACK')
 
         else:
-            server_socket.sendto(udp_header_arr, address)
+            if not server_socket._closed:
+                server_socket.sendto(udp_header_arr, address)
 
-        message, address = server_socket.recvfrom(MAX_DATA_SIZE)
-        if message and shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE_ACK']:
-            last_ack = time.time()
+        if not server_socket._closed:
+            message, address = server_socket.recvfrom(MAX_DATA_SIZE)
+
+            if message and shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE_ACK']:
+                last_ack = time.time()
         return
 
 
@@ -86,6 +89,8 @@ def handle_server_responses():
     global kill_threads
     message, address = server_socket.recvfrom(MAX_DATA_SIZE)  # 1. WAITING FOR INIT MESSAGE
 
+    if shared.transl(message, 2, 4) == config.signals['KEEP_ALIVE_ACK']:
+        return
 
     input_was_stdin = False
     global connection_acquired
@@ -264,7 +269,6 @@ def server_behaviour(port_number = 1236):
             if os.path.exists("received_files/_tmp_stdin.txt"):
                 os.remove("received_files/_tmp_stdin.txt")
 
-            kill_threads = True
             handle_server_responses()
             kill_threads = False
 
