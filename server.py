@@ -168,10 +168,10 @@ def handle_server_responses():
                                     new_file.write(value)
                                 # send_ack(address, 'FRAGMENT_ACK_OK')
 
-                            # if os.path.exists("received_files/_tmp_stdin.txt"):
-                            #     file_to_read = open("received_files/_tmp_stdin.txt", "r")
-                            #     data = file_to_read.read()
-                            #     print("Prichadzajuca sprava: " + data)
+                            if os.path.exists("received_files/_tmp_stdin.txt"):
+                                file_to_read = open("received_files/_tmp_stdin.txt", "r")
+                                data = file_to_read.read()
+                                print(data)
 
                             if not dontbreakonfirstiteration:
                                 return

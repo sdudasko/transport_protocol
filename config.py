@@ -2,7 +2,7 @@
 common = dict(
     FORMAT = 'utf-8',
     DISCONNECT_AFTER_N_SECONDS = 60,
-    SIMULACIA_CHYBY_VO_FRAGMENTE = 2
+    SIMULACIA_CHYBY_VO_FRAGMENTE = 1
 )
 # SIGNALS
 signals = dict(
@@ -22,7 +22,7 @@ signals = dict(
 # addressing size might be smaller if user opts to send smaller fragments
 header = dict(
     MAX_ADDRESSING_SIZE = 1500,
-    MAX_ADDRESSING_SIZE_WITHOUT_HEADER = 1454, # TODO - should be 1456 but there are some 4 bytes in loopback idk what are these
+    MAX_ADDRESSING_SIZE_WITHOUT_HEADER = 1454,
     HEADER_SIZE = 14,
 )
 data = dict(
