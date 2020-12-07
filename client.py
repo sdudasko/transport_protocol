@@ -140,10 +140,14 @@ def handle_client_request_to_send_data(message, filename='', already_connected=F
                 k = False
                 total_mismatchs = 0
                 client_block_of_fragments.clear()
+                rr = False
                 # Citame subor
                 while bytes_to_send != b'':
                     kill_threads = True
-                    if i % 2 == 0:
+                    if i % 2 == 1:
+                        if not rr:
+                            send_piece_of_data(bytes_to_send, i, False, nch=total_fragments)
+                            rr = True
                         bytes_to_send = file.read(max_addressing_size_without_header)
                         i+=1
                         continue
