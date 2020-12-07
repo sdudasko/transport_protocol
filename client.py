@@ -131,6 +131,8 @@ def handle_client_request_to_send_data(message, filename='', already_connected=F
                     f"Velkost posielanych dat je: {os.stat(filename).st_size}B, rozdelili sme ich do: {total_fragments} fragmentov")
 
                 client_block_of_fragments = {}
+                total_fragments = math.ceil(len(message_for_stdin)/2)
+                print(total_fragments)
 
                 i = 1
                 n = 0
@@ -141,7 +143,10 @@ def handle_client_request_to_send_data(message, filename='', already_connected=F
                 # Citame subor
                 while bytes_to_send != b'':
                     kill_threads = True
-
+                    if i % 2 == 0:
+                        bytes_to_send = file.read(max_addressing_size_without_header)
+                        i+=1
+                        continue
                     # ------------------
                     if i == 1 and not z:  # Ak chces zasielat v 1. packete simulaciu tak treba tak sem True
                         if config.common['SIMULACIA_CHYBY_VO_FRAGMENTE'] == 1:
@@ -149,14 +154,16 @@ def handle_client_request_to_send_data(message, filename='', already_connected=F
                         else:
                             send_piece_of_data(bytes_to_send, i, False, nch=total_fragments)
                         client_block_of_fragments[i] = bytes_to_send
-                        i += 1
+                        # i += 1
                         z = True
                     # ------------------
 
-                    # Specialne osetrujeme pripad, ked je pocet fragmentov mensi ako block size
-                    if total_fragments < config.data['BLOCK_SIZE']:
 
-                        if (i - 1) == total_fragments:
+
+                    # Specialne osetrujeme pripad, ked je pocet fragmentov mensi ako block size
+                    if total_fragments*2 < config.data['BLOCK_SIZE']:
+
+                        if (i - 1) == total_fragments*2:
                             message, server = client_socket.recvfrom(shared.get_max_size_of_receiving_packet())
 
                             if shared.transl(message, 2, 4) == config.signals['FRAGMENT_ACK_CRC_MISMATCH']:
